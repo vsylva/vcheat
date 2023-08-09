@@ -1,0 +1,14 @@
+[package]
+name = "vcheat"
+version = "0.1.0"
+authors = ["vSylva"]
+edition = "2021"
+description = "A short description of my package"
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/vSylva/vcheat"
+repository = "https://github.com/vSylva/vcheat"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc", "i686-pc-windows-msvc"]
