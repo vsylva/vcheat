@@ -1,9 +1,9 @@
 [package]
 name = "vcheat"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["vSylva"]
 edition = "2021"
-description = "A short description of my package"
+description = "Simple Windows Game Cheat Library"
 readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/vSylva/vcheat"

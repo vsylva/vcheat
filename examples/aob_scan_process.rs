@@ -1,8 +1,39 @@
 fn main() {
-    scan();
+    nt_scan_single_threaded();
+    scan_single_threaded();
+    scan_multi_threaded();
 }
 
-fn scan() {
+fn nt_scan_single_threaded() {
+    let now = std::time::Instant::now();
+    let process_info_array = vcheat::nt_get_all_processes_info().unwrap();
+
+    for p in process_info_array {
+        if p.process_name.to_lowercase() == "Explorer.EXE".to_lowercase() {
+            let modules_info = vcheat::get_all_process_modules_info(p.process_id, true).unwrap();
+            for m in modules_info {
+                if m.module_name.to_lowercase() == "NTDLL.DLL".to_lowercase() {
+                    let addres_array = vcheat::aob_scan_single_threaded(
+                        "5C ? 6D ??",
+                        &m.module_data.unwrap(),
+                        false,
+                    )
+                    .unwrap();
+                    println!("Address found by a single thread: {:X?}", addres_array);
+                    println!(
+                        "Elapsed time of a single thread: {} millis",
+                        now.elapsed().as_millis()
+                    );
+                    break;
+                }
+            }
+        }
+    }
+}
+
+fn scan_single_threaded() {
+    let now = std::time::Instant::now();
+
     let process_info_array = vcheat::get_all_processes_info().unwrap();
 
     for p in process_info_array {
@@ -16,7 +47,11 @@ fn scan() {
                         false,
                     )
                     .unwrap();
-                    println!("{:X?}", addres_array);
+                    println!("Address found by a single thread: {:X?}", addres_array);
+                    println!(
+                        "Elapsed time of a single thread: {} millis",
+                        now.elapsed().as_millis()
+                    );
                     break;
                 }
             }
@@ -24,24 +59,31 @@ fn scan() {
     }
 }
 
-// fn nt() {
-//     let process_info_array = vcheat::nt_get_all_processes_info().unwrap();
+fn scan_multi_threaded() {
+    let now = std::time::Instant::now();
 
-//     for p in process_info_array {
-//         if p.process_name.to_lowercase() == "Explorer.EXE".to_lowercase() {
-//             let modules_info = vcheat::get_all_process_modules_info(p.process_id, true).unwrap();
-//             for m in modules_info {
-//                 if m.module_name.to_lowercase() == "NTDLL.DLL".to_lowercase() {
-//                     let addres_array = vcheat::aob_scan_single_threaded(
-//                         "5C ? 6D ??",
-//                         &m.module_data.unwrap(),
-//                         true,
-//                     )
-//                     .unwrap();
-//                     println!("{:X?}", addres_array);
-//                     break;
-//                 }
-//             }
-//         }
-//     }
-// }
+    let process_info_array = vcheat::get_all_processes_info().unwrap();
+
+    for p in process_info_array {
+        if p.process_name.to_lowercase() == "Explorer.EXE".to_lowercase() {
+            let modules_info = vcheat::get_all_process_modules_info(p.process_id, true).unwrap();
+            for m in modules_info {
+                if m.module_name.to_lowercase() == "NTDLL.DLL".to_lowercase() {
+                    let addres_array = vcheat::aob_scan_multi_threaded(
+                        "5C ? 6D ??",
+                        &m.module_data.unwrap(),
+                        false,
+                        vcheat::get_logical_cpu_count(),
+                    )
+                    .unwrap();
+                    println!("Address found by a multi thread: {:X?}", addres_array);
+                    println!(
+                        "Elapsed time of a multi thread: {} millis",
+                        now.elapsed().as_millis()
+                    );
+                    break;
+                }
+            }
+        }
+    }
+}
