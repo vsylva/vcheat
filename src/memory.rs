@@ -1,6 +1,7 @@
 use crate::*;
 
 /// Some of the code in this function is based on sonodima's code from
+/// https://github.com/sonodima/aobscan/blob/master/src/builder.rs
 /// https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
 pub fn aob_scan_single_threaded(
     pattern: &str,
@@ -15,8 +16,12 @@ pub fn aob_scan_single_threaded(
             mask.push(false);
             signature.push(0);
         } else {
+            let number = match u8::from_str_radix(pair, 16) {
+                Ok(ok) => ok,
+                Err(err) => return Err(err.to_string()),
+            };
             mask.push(true);
-            signature.push(u8::from_str_radix(pair, 16)?);
+            signature.push(number);
         }
     }
 
@@ -66,8 +71,8 @@ pub fn aob_scan_single_threaded(
 }
 
 /// Some of the code in this function is based on sonodima's code from
-/// https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
 /// https://github.com/sonodima/aobscan/blob/master/src/builder.rs
+/// https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
 pub fn aob_scan_multi_threaded(
     pattern: &str,
     data: &[u8],
@@ -75,24 +80,15 @@ pub fn aob_scan_multi_threaded(
     thread_count: usize,
 ) -> Result<Vec<usize>> {
     if pattern.is_empty() {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Pattern cannot be empty",
-        )));
+        return Err("Pattern cannot be empty".to_string());
     }
 
     if data.len() == 0 {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Data cannot be empty",
-        )));
+        return Err("Data cannot be empty".to_string());
     }
 
     if thread_count < 2 {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Thread count must be greater than one",
-        )));
+        return Err("Thread count must be greater than one".to_string());
     }
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
@@ -103,8 +99,12 @@ pub fn aob_scan_multi_threaded(
             mask.push(false);
             signature.push(0);
         } else {
+            let number = match u8::from_str_radix(pair, 16) {
+                Ok(ok) => ok,
+                Err(err) => return Err(err.to_string()),
+            };
             mask.push(true);
-            signature.push(u8::from_str_radix(pair, 16)?);
+            signature.push(number);
         }
     }
 
@@ -226,10 +226,7 @@ pub fn aob_scan_multi_threaded(
     let mut address_array = if let Ok(val) = address_array.lock() {
         val.to_vec()
     } else {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Mutex lock failed",
-        )));
+        return Err("Mutex lock failed".to_string());
     };
     address_array.sort();
     Ok(address_array)
@@ -251,15 +248,14 @@ pub fn read_memory(
         );
 
         if result == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("VirtualQueryEx failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "VirtualQueryEx failed with return value: {result:X}"
+            ));
         }
 
         let mut old_protect = 0u32;
 
-        let mut new_protect = 4u32;
+        let mut new_protect = 0x4u32;
 
         let result = VirtualProtectEx(
             process_handle,
@@ -270,10 +266,9 @@ pub fn read_memory(
         );
 
         if result == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("VirtualProtectEx failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
         }
 
         let mut buffer: Vec<u8> = Vec::new();
@@ -289,10 +284,9 @@ pub fn read_memory(
         );
 
         if result == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("ReadProcessMemory failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "ReadProcessMemory failed with return value: {result:X}"
+            ));
         }
 
         let result = VirtualProtectEx(
@@ -304,10 +298,9 @@ pub fn read_memory(
         );
 
         if result == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("VirtualProtectEx failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
         }
 
         Ok(buffer)
@@ -317,23 +310,70 @@ pub fn read_memory(
 pub fn write_memory(
     process_handle: *mut core::ffi::c_void,
     address: *mut core::ffi::c_void,
-    buffer: &mut Vec<u8>,
-) -> Result<()> {
+    data: &[u8],
+) -> Result<usize> {
     unsafe {
+        let result = VirtualQueryEx(
+            process_handle,
+            address,
+            &mut MemoryBasicInformation {
+                ..core::mem::zeroed()
+            },
+            core::mem::size_of::<MemoryBasicInformation>(),
+        );
+
+        if result == 0 {
+            return Err(format!(
+                "VirtualQueryEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut old_protect = 0u32;
+
+        let mut new_protect = 0x4u32;
+
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_protect,
+            &mut old_protect,
+        );
+
+        if result == 0 {
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut number_of_bytes_written = 0;
         let result = WriteProcessMemory(
             process_handle,
             address,
-            buffer.as_ptr().cast(),
-            buffer.len(),
-            core::ptr::null_mut(),
+            data.as_ptr().cast(),
+            data.len(),
+            &mut number_of_bytes_written,
         );
         if result == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("WriteProcessMemory failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "WriteProcessMemory failed with return value: {result:X}"
+            ));
         }
 
-        Ok(())
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            old_protect,
+            &mut new_protect,
+        );
+
+        if result == 0 {
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        Ok(number_of_bytes_written)
     }
 }

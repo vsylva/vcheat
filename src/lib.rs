@@ -10,10 +10,10 @@ pub use module::*;
 pub use process::*;
 pub use system::*;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type Result<T> = std::result::Result<T, String>;
 
 #[repr(C)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProcessInfo {
     pub process_id: u32,
     pub process_thread_count: u32,
@@ -23,7 +23,7 @@ pub struct ProcessInfo {
 }
 
 #[repr(C)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SystemProcessInfo {
     pub process_thread_count: u32,
     pub process_name: String,
@@ -43,7 +43,7 @@ pub struct SystemProcessInfo {
 }
 
 #[repr(C)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ModuleInfo {
     pub process_id: u32,
     pub module_address: *mut u8,
@@ -55,7 +55,7 @@ pub struct ModuleInfo {
 }
 
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DmiInfo {
     pub bios_version: Option<String>,
     pub bios_release_date: Option<String>,

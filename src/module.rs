@@ -8,10 +8,9 @@ pub fn get_all_process_modules_info(
         let snapshot_handle = CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
         if snapshot_handle.is_null() {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("CreateToolhelp32Snapshot failed with return value: {snapshot_handle:X?}"),
-            )));
+            return Err(format!(
+                "CreateToolhelp32Snapshot failed with return value: {snapshot_handle:X?}"
+            ));
         }
 
         let module_entry = &mut core::mem::zeroed() as *mut ModuleEntry32W;
@@ -21,10 +20,9 @@ pub fn get_all_process_modules_info(
 
         if result == 0 {
             CloseHandle(snapshot_handle);
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Module32FirstW failed with return value: {result:X}"),
-            )));
+            return Err(format!(
+                "Module32FirstW failed with return value: {result:X}"
+            ));
         }
 
         let mut module_entry_array = Vec::<ModuleEntry32W>::new();
@@ -35,9 +33,17 @@ pub fn get_all_process_modules_info(
             module_entry_array.push(module_entry.read());
         }
 
-        CloseHandle(snapshot_handle);
+        if !snapshot_handle.is_null() {
+            close_handle(snapshot_handle)?
+        }
 
         let mut module_info_array = Vec::<ModuleInfo>::new();
+
+        let mut process_handle: *mut core::ffi::c_void = core::ptr::null_mut();
+
+        if read_module_data {
+            process_handle = get_process_handle(process_id)?
+        }
 
         for m in module_entry_array {
             module_info_array.push(ModuleInfo {
@@ -60,33 +66,21 @@ pub fn get_all_process_modules_info(
                 .to_string_lossy()
                 .to_string(),
                 module_data: if read_module_data {
-                    get_module_data(m.th32_process_id, m.mod_base_addr.cast(), m.mod_base_size).ok()
+                    Some(memory::read_memory(
+                        process_handle,
+                        m.mod_base_addr.cast(),
+                        m.mod_base_size as usize,
+                    )?)
                 } else {
                     None
                 },
             })
         }
 
-        Ok(module_info_array)
-    }
-}
-
-pub fn get_module_data(
-    process_id: u32,
-    module_address: *mut core::ffi::c_void,
-    module_size: u32,
-) -> Result<Vec<u8>> {
-    unsafe {
-        let process_handle = process::get_process_handle(process_id)?;
-        match memory::read_memory(process_handle, module_address, module_size as usize) {
-            Ok(module_data) => {
-                CloseHandle(process_handle);
-                Ok(module_data)
-            }
-            Err(err) => {
-                CloseHandle(process_handle);
-                Err(err)
-            }
+        if !process_handle.is_null() {
+            close_handle(process_handle)?;
         }
+
+        Ok(module_info_array)
     }
 }

@@ -1,0 +1,50 @@
+# 设置 Rust 版本为 2021 Edition
+# edition = "2021"
+
+# 允许使用实验性特性
+unstable_features = true
+
+# 最少保留 1 行空白行
+blank_lines_lower_bound = 0
+
+# 最多保留 1 行空白行
+blank_lines_upper_bound = 1
+
+# 大括号风格为 SameLineWhere，即与条件语句紧贴着
+brace_style = "SameLineWhere"
+
+# 空的项不放在单独的一行
+empty_item_single_line = false
+
+# 强制多行块
+force_multiline_blocks = true
+
+# 在文档注释中格式化代码
+format_code_in_doc_comments = true
+
+# 十六进制字面量使用大写形式
+hex_literal_case = "Upper"
+
+# 导入模块的布局为水平垂直混合
+imports_layout = "HorizontalVertical"
+
+# 导入模块的粒度为 Crate
+imports_granularity = "Crate"
+
+# 使用 Unix 风格的换行符
+newline_style = "Unix"
+
+# 归一化注释
+normalize_comments = true
+
+# 重新排序实现项
+reorder_impl_items = true
+
+# 将导入的外部模块分组为 StdExternalCrate
+group_imports = "StdExternalCrate"
+
+# 结构体字面量不放在单独的一行
+struct_lit_single_line = false
+
+# 使用字段初始化简写
+use_field_init_shorthand = true
