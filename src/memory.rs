@@ -1,8 +1,169 @@
 use crate::*;
 
+pub fn read_process_memory(
+    process_id: u32,
+    address: *const core::ffi::c_void,
+    size: usize,
+) -> Result<Vec<u8>> {
+    unsafe {
+        let process_handle = open_process_handle(process_id)?;
+
+        let result = VirtualQueryEx(
+            process_handle,
+            address,
+            &mut MemoryBasicInformation {
+                ..core::mem::zeroed()
+            },
+            core::mem::size_of::<MemoryBasicInformation>(),
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualQueryEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut old_protect = 0u32;
+
+        let mut new_protect = 4u32;
+
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_protect,
+            &mut old_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut buffer: Vec<u8> = Vec::with_capacity(size);
+        buffer.set_len(size);
+
+        let result = ReadProcessMemory(
+            process_handle,
+            address,
+            buffer.as_mut_ptr().cast(),
+            size,
+            &mut 0,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "ReadProcessMemory failed with return value: {result:X}"
+            ));
+        }
+
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            old_protect,
+            &mut new_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        close_handle(process_handle)?;
+
+        Ok(buffer)
+    }
+}
+
+pub fn write_process_memory(
+    process_id: u32,
+    address: *mut core::ffi::c_void,
+    data: &[u8],
+) -> Result<usize> {
+    unsafe {
+        let process_handle = open_process_handle(process_id)?;
+
+        let result = VirtualQueryEx(
+            process_handle,
+            address,
+            &mut MemoryBasicInformation {
+                ..core::mem::zeroed()
+            },
+            core::mem::size_of::<MemoryBasicInformation>(),
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualQueryEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut old_protect = 0u32;
+
+        let mut new_protect = 4u32;
+
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_protect,
+            &mut old_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut number_of_bytes_written = 0;
+        let result = WriteProcessMemory(
+            process_handle,
+            address,
+            data.as_ptr().cast(),
+            data.len(),
+            &mut number_of_bytes_written,
+        );
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "WriteProcessMemory failed with return value: {result:X}"
+            ));
+        }
+
+        let result = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            old_protect,
+            &mut new_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        close_handle(process_handle)?;
+
+        Ok(number_of_bytes_written)
+    }
+}
+
 /// Some of the code in this function is based on sonodima's code from
-/// https://github.com/sonodima/aobscan/blob/master/src/builder.rs
-/// https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
+/// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
+/// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
 pub fn aob_scan_single_threaded(
     pattern: &str,
     data: &[u8],
@@ -71,8 +232,8 @@ pub fn aob_scan_single_threaded(
 }
 
 /// Some of the code in this function is based on sonodima's code from
-/// https://github.com/sonodima/aobscan/blob/master/src/builder.rs
-/// https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
+/// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
+/// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
 pub fn aob_scan_multi_threaded(
     pattern: &str,
     data: &[u8],
@@ -230,150 +391,4 @@ pub fn aob_scan_multi_threaded(
     };
     address_array.sort();
     Ok(address_array)
-}
-
-pub fn read_memory(
-    process_handle: *mut core::ffi::c_void,
-    address: *const core::ffi::c_void,
-    size: usize,
-) -> Result<Vec<u8>> {
-    unsafe {
-        let result = VirtualQueryEx(
-            process_handle,
-            address,
-            &mut MemoryBasicInformation {
-                ..core::mem::zeroed()
-            },
-            core::mem::size_of::<MemoryBasicInformation>(),
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualQueryEx failed with return value: {result:X}"
-            ));
-        }
-
-        let mut old_protect = 0u32;
-
-        let mut new_protect = 0x4u32;
-
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            new_protect,
-            &mut old_protect,
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
-        }
-
-        let mut buffer: Vec<u8> = Vec::new();
-
-        buffer.resize(size, 0u8);
-
-        let result = ReadProcessMemory(
-            process_handle,
-            address,
-            buffer.as_mut_ptr().cast(),
-            size,
-            core::ptr::null_mut(),
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "ReadProcessMemory failed with return value: {result:X}"
-            ));
-        }
-
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            old_protect,
-            &mut new_protect,
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
-        }
-
-        Ok(buffer)
-    }
-}
-
-pub fn write_memory(
-    process_handle: *mut core::ffi::c_void,
-    address: *mut core::ffi::c_void,
-    data: &[u8],
-) -> Result<usize> {
-    unsafe {
-        let result = VirtualQueryEx(
-            process_handle,
-            address,
-            &mut MemoryBasicInformation {
-                ..core::mem::zeroed()
-            },
-            core::mem::size_of::<MemoryBasicInformation>(),
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualQueryEx failed with return value: {result:X}"
-            ));
-        }
-
-        let mut old_protect = 0u32;
-
-        let mut new_protect = 0x4u32;
-
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            new_protect,
-            &mut old_protect,
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
-        }
-
-        let mut number_of_bytes_written = 0;
-        let result = WriteProcessMemory(
-            process_handle,
-            address,
-            data.as_ptr().cast(),
-            data.len(),
-            &mut number_of_bytes_written,
-        );
-        if result == 0 {
-            return Err(format!(
-                "WriteProcessMemory failed with return value: {result:X}"
-            ));
-        }
-
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            old_protect,
-            &mut new_protect,
-        );
-
-        if result == 0 {
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
-        }
-
-        Ok(number_of_bytes_written)
-    }
 }

@@ -1,9 +1,9 @@
 [package]
 name = "vcheat"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["vSylva"]
 edition = "2021"
-description = "Simple Windows Game Cheat Library"
+description = "Simple Windows Process Cheating Library"
 readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/vSylva/vcheat"

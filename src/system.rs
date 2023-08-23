@@ -11,8 +11,8 @@ pub fn get_logical_cpu_count() -> usize {
 }
 
 /// Some of the code in this function is based on Mircea Neacsu's C++ code from
-/// https://blog.csdn.net/youyudexiaowangzi/article/details/122308734
-/// https://www.codeproject.com/Tips/5263343/How-to-Get-the-BIOS-UUID
+/// <https://blog.csdn.net/youyudexiaowangzi/article/details/122308734>
+/// <https://www.codeproject.com/Tips/5263343/How-to-Get-the-BIOS-UUID>
 pub fn get_dmi_info() -> Result<DmiInfo> {
     unsafe {
         let signature = *b"RSMB";
@@ -29,8 +29,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             ));
         }
 
-        let mut buffer = Vec::with_capacity(return_value as usize);
-        buffer.set_len(return_value as usize);
+        let mut buffer = vec![0u8; return_value as usize];
 
         return_value = GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_value);
 
@@ -98,8 +97,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             system_family: None,
         };
 
-        let mut uuid = Vec::<u8>::with_capacity(16);
-        uuid.set_len(16);
+        let mut uuid = vec![0u8; 16];
 
         let mut data = smb.smbiostable_data.as_ptr();
 

@@ -1,8 +1,8 @@
 use crate::*;
 
-pub fn get_process_handle(process_id: u32) -> Result<*mut core::ffi::c_void> {
+pub(crate) fn open_process_handle(process_id: u32) -> Result<*mut core::ffi::c_void> {
     unsafe {
-        let process_handle = OpenProcess(0x000F0000 | 0x00100000 | 0xFFFF, 0, process_id);
+        let process_handle = OpenProcess(0x1F0FFF, 0, process_id);
 
         if process_handle.is_null() {
             return Err(format!(
@@ -14,7 +14,7 @@ pub fn get_process_handle(process_id: u32) -> Result<*mut core::ffi::c_void> {
     }
 }
 
-pub fn close_handle(handle: *mut core::ffi::c_void) -> Result<()> {
+pub(crate) fn close_handle(handle: *mut core::ffi::c_void) -> Result<()> {
     unsafe {
         if !handle.is_null() {
             if CloseHandle(handle) != 0 {
@@ -25,6 +25,34 @@ pub fn close_handle(handle: *mut core::ffi::c_void) -> Result<()> {
         } else {
             Err("Handle is null, no need to close".to_string())
         }
+    }
+}
+
+#[cfg(any(
+    all(target_arch = "arm", target_pointer_width = "32"),
+    target_arch = "x86"
+))]
+pub fn is_wow64_process(process_id: u32) -> Result<bool> {
+    unsafe {
+        let process_handle = open_process_handle(process_id)?;
+
+        let mut is_wow64 = 0;
+
+        let result = IsWow64Process(process_handle, &mut is_wow64);
+
+        close_handle(process_handle)?;
+
+        if result == 0 {
+            return Err(format!(
+                "IsWow64Process failed with return value: {result:X?}"
+            ));
+        }
+
+        if is_wow64 != 0 {
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 }
 
@@ -45,7 +73,7 @@ pub fn get_all_processes_info() -> Result<Vec<ProcessInfo>> {
         let result = Process32FirstW(snapshot_handle, process_entry);
 
         if result == 0 {
-            CloseHandle(snapshot_handle);
+            close_handle(snapshot_handle)?;
             return Err(format!(
                 "Process32FirstW failed with return value: {result:X}"
             ));
@@ -92,15 +120,12 @@ pub fn nt_get_all_processes_info() -> Result<Vec<SystemProcessInfo>> {
 
         NtQuerySystemInformation(5, core::ptr::null_mut(), 0, &mut return_length);
 
-        return_length *= 2;
-
-        let mut buffer = Vec::<u8>::with_capacity(return_length as usize);
-        buffer.set_len(return_length as usize);
+        let mut buffer = vec![0u8; return_length as usize * 2];
 
         let result = NtQuerySystemInformation(
             5,
-            buffer.as_mut_ptr().cast(),
-            buffer.capacity() as u32,
+            buffer.as_mut_ptr() as *mut core::ffi::c_void,
+            return_length * 2,
             &mut return_length,
         );
 
@@ -118,13 +143,16 @@ pub fn nt_get_all_processes_info() -> Result<Vec<SystemProcessInfo>> {
             buffer.as_ptr().offset(current_offset as isize).cast(),
         );
 
-        let next_entry_offset = process_info.next_entry_offset;
         while process_info.next_entry_offset != 0 {
             if process_info.unique_process_id != 0 {
-                process_info_array.push(process_info);
+                process_info_array.push(process_info.clone());
             }
 
-            current_offset += next_entry_offset;
+            current_offset += process_info.next_entry_offset;
+
+            if buffer.as_ptr().offset(current_offset as isize).is_null() {
+                break;
+            }
 
             process_info = core::ptr::read::<SystemProcessInformation>(
                 buffer.as_ptr().offset(current_offset as isize).cast(),

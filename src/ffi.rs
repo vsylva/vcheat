@@ -1,6 +1,11 @@
 #[link(name = "kernel32")]
 
 extern "system" {
+    #[cfg(any(
+        all(target_arch = "arm", target_pointer_width = "32"),
+        target_arch = "x86"
+    ))]
+    pub(crate) fn IsWow64Process(hProcess: *mut core::ffi::c_void, Wow64Process: *mut i32) -> i32;
 
     pub(crate) fn OpenProcess(
         dwDesiredAccess: u32,
@@ -91,8 +96,7 @@ extern "system" {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct ProcessEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) cnt_usage: u32,
@@ -107,8 +111,7 @@ pub(crate) struct ProcessEntry32W {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct ModuleEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) th32_module_id: u32,
@@ -123,8 +126,7 @@ pub(crate) struct ModuleEntry32W {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct SystemProcessInformation {
     pub(crate) next_entry_offset: u32,
     pub(crate) number_of_threads: u32,
@@ -152,8 +154,7 @@ pub(crate) struct SystemProcessInformation {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct UnicodeString {
     pub(crate) length: u16,
     pub(crate) maximum_length: u16,
@@ -161,8 +162,7 @@ pub(crate) struct UnicodeString {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct MemoryBasicInformation {
     pub(crate) base_address: *mut core::ffi::c_void,
     pub(crate) allocation_base: *mut core::ffi::c_void,
@@ -176,7 +176,6 @@ pub(crate) struct MemoryBasicInformation {
 }
 
 #[repr(C)]
-
 pub(crate) struct SystemInfo {
     pub(crate) anonymous: SystemInfoDummyUnion,
     pub(crate) dw_page_size: u32,
@@ -191,23 +190,20 @@ pub(crate) struct SystemInfo {
 }
 
 #[repr(C)]
-
 pub(crate) union SystemInfoDummyUnion {
     pub(crate) dw_oem_id: u32,
     pub(crate) anonymous: std::mem::ManuallyDrop<SystemInfoDummyStruct>,
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct SystemInfoDummyStruct {
     pub(crate) w_processor_architecture: u16,
     pub(crate) w_reserved: u16,
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct RawSMBIOSData {
     pub(crate) used20_calling_method: u8,
     pub(crate) smbiosmajor_version: u8,
@@ -218,8 +214,7 @@ pub(crate) struct RawSMBIOSData {
 }
 
 #[repr(C)]
-#[derive(Debug)]
-
+#[derive(Debug, Clone)]
 pub(crate) struct DmiHeader {
     pub(crate) ctype: u8,
     pub(crate) length: u8,

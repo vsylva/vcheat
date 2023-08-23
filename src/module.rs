@@ -5,6 +5,17 @@ pub fn get_all_process_modules_info(
     read_module_data: bool,
 ) -> Result<Vec<ModuleInfo>> {
     unsafe {
+        #[cfg(any(
+            all(target_arch = "arm", target_pointer_width = "32"),
+            target_arch = "x86"
+        ))]
+        {
+            let is_wow64_process = is_wow64_process(process_id)?;
+            if !is_wow64_process {
+                return Err(format!("The process({process_id}) is 64-bit"));
+            }
+        }
+
         let snapshot_handle = CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
         if snapshot_handle.is_null() {
@@ -19,7 +30,7 @@ pub fn get_all_process_modules_info(
         let result = Module32FirstW(snapshot_handle, module_entry);
 
         if result == 0 {
-            CloseHandle(snapshot_handle);
+            close_handle(snapshot_handle)?;
             return Err(format!(
                 "Module32FirstW failed with return value: {result:X}"
             ));
@@ -38,12 +49,6 @@ pub fn get_all_process_modules_info(
         }
 
         let mut module_info_array = Vec::<ModuleInfo>::new();
-
-        let mut process_handle: *mut core::ffi::c_void = core::ptr::null_mut();
-
-        if read_module_data {
-            process_handle = get_process_handle(process_id)?
-        }
 
         for m in module_entry_array {
             module_info_array.push(ModuleInfo {
@@ -66,19 +71,15 @@ pub fn get_all_process_modules_info(
                 .to_string_lossy()
                 .to_string(),
                 module_data: if read_module_data {
-                    Some(memory::read_memory(
-                        process_handle,
+                    Some(memory::read_process_memory(
+                        process_id,
                         m.mod_base_addr.cast(),
                         m.mod_base_size as usize,
-                    )?)
+                    ))
                 } else {
                     None
                 },
             })
-        }
-
-        if !process_handle.is_null() {
-            close_handle(process_handle)?;
         }
 
         Ok(module_info_array)
