@@ -6,12 +6,11 @@ fn main() {
         target_arch = "x86"
     ))]
     {
-        for p in vcheat::get_all_processes_info().unwrap() {
-            if let Ok(is_wow64) = vcheat::is_wow64_process(p.process_id) {
+        for process_info in vcheat::get_all_processes_info().unwrap() {
+            if let Ok(is_wow64) = vcheat::is_wow64_process(process_info.process_id) {
                 if is_wow64 {
-                    print_process_info(&p.process_name);
-                    print_module_info(&p.process_name, &p.process_name, true);
-                    enum_data_read_failed_modules(&p.process_name, true);
+                    print_process_info(&process_info.process_name);
+                    print_module_info(&process_info.process_name, &process_info.process_name);
                     break;
                 }
             }
@@ -21,8 +20,7 @@ fn main() {
     #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
     {
         print_process_info("Explorer.exe");
-        print_module_info("Explorer.exe", "ntdll.DLL", true);
-        enum_data_read_failed_modules("Explorer.exe", true);
+        print_module_info("Explorer.exe", "ntdll.DLL");
     }
 
     println!("If a crash occurs below instead of an unwrap, it indicates an error in the nt_get_all_processes_info function");
@@ -60,59 +58,34 @@ fn print_dmi_info() {
 }
 
 fn print_process_info<S: AsRef<str>>(process_name: S) {
-    let process_info_array = vcheat::get_all_processes_info().unwrap();
-
-    for p in process_info_array {
-        if p.process_name.to_lowercase() == process_name.as_ref().to_lowercase() {
-            println!("process_name: {}", p.process_name);
-            println!("process_id: {}", p.process_id);
+    for process_info in vcheat::get_all_processes_info().unwrap() {
+        if process_info.process_name.to_lowercase() == process_name.as_ref().to_lowercase() {
+            println!("process_name: {}", process_info.process_name);
+            println!("process_id: {}", process_info.process_id);
             println!(
                 "process_base_priority_class: {}",
-                p.process_base_priority_class
+                process_info.process_base_priority_class
             );
-            println!("process_thread_count: {}", p.process_thread_count);
+            println!(
+                "process_thread_count: {}",
+                process_info.process_thread_count
+            );
         }
     }
 }
 
-fn print_module_info<S: AsRef<str>>(process_name: S, module_name: S, read_module_data: bool) {
-    let process_info_array = vcheat::get_all_processes_info().unwrap();
-    for p in process_info_array {
-        if p.process_name.to_lowercase() == process_name.as_ref().to_lowercase() {
-            let modules_info =
-                vcheat::get_all_process_modules_info(p.process_id, read_module_data).unwrap();
-            for m in modules_info {
-                if m.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
-                    println!("process id: {}", m.process_id);
-                    println!("module name: {}", m.module_name);
-                    println!("module handle: {:X?}", m.module_handle as usize);
-                    println!("module address: {:X?}", m.module_address as usize);
-                    println!("module path: {}", m.module_path);
-                    if read_module_data {
-                        println!(
-                            "module size(module_data.len()): {:X}",
-                            m.module_data.unwrap().unwrap().len()
-                        );
-                    } else {
-                        println!("module size: {:X?}", m.module_size);
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn enum_data_read_failed_modules<S: AsRef<str>>(process_name: S, read_module_data: bool) {
-    let process_info_array = vcheat::get_all_processes_info().unwrap();
-    for p in process_info_array {
-        if p.process_name.to_lowercase() == process_name.as_ref().to_lowercase() {
-            let modules_info =
-                vcheat::get_all_process_modules_info(p.process_id, read_module_data).unwrap();
-            for m in modules_info {
-                if let Some(Err(err)) = m.module_data {
-                    println!("data read invalid process id: {}", m.process_id);
-                    println!("data read invalid module name: {}", m.module_name);
-                    println!("data read error message: {}", err);
+fn print_module_info<S: AsRef<str>>(process_name: S, module_name: S) {
+    for process_info in vcheat::get_all_processes_info().unwrap() {
+        if process_info.process_name.to_lowercase() == process_name.as_ref().to_lowercase() {
+            for module_info in
+                vcheat::get_all_process_modules_info(process_info.process_id).unwrap()
+            {
+                if module_info.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
+                    println!("process id: {}", module_info.process_id);
+                    println!("module name: {}", module_info.module_name);
+                    println!("module handle: {:X?}", module_info.module_handle as usize);
+                    println!("module address: {:X?}", module_info.module_address as usize);
+                    println!("module path: {}", module_info.module_path);
                 }
             }
         }
@@ -120,20 +93,30 @@ fn enum_data_read_failed_modules<S: AsRef<str>>(process_name: S, read_module_dat
 }
 
 fn nt_print_process_info() {
-    let process_info_array = vcheat::nt_get_all_processes_info().unwrap();
-
-    for p in process_info_array {
-        if p.process_name.to_lowercase() == "Explorer.EXE".to_lowercase() {
-            println!("nt_process_name: {}", p.process_name);
-            println!("nt_process_id: {}", p.process_id);
-            println!("nt_process_session_id: {}", p.process_session_id);
+    for system_process_info in vcheat::nt_get_all_processes_info().unwrap() {
+        if system_process_info.process_name.to_lowercase() == "Explorer.EXE".to_lowercase() {
+            println!("nt_process_name: {}", system_process_info.process_name);
+            println!("nt_process_id: {}", system_process_info.process_id);
+            println!(
+                "nt_process_session_id: {}",
+                system_process_info.process_session_id
+            );
             println!(
                 "nt_process_base_priority_class: {}",
-                p.process_base_priority_class
+                system_process_info.process_base_priority_class
             );
-            println!("nt_process_handle_count: {}", p.process_handle_count);
-            println!("nt_process_pagefile_usage: {:X}", p.process_pagefile_usage);
-            println!("nt_process_thread_count: {}", p.process_thread_count);
+            println!(
+                "nt_process_handle_count: {}",
+                system_process_info.process_handle_count
+            );
+            println!(
+                "nt_process_pagefile_usage: {:X}",
+                system_process_info.process_pagefile_usage
+            );
+            println!(
+                "nt_process_thread_count: {}",
+                system_process_info.process_thread_count
+            );
         }
     }
 }

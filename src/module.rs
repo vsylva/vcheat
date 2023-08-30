@@ -1,9 +1,6 @@
 use crate::*;
 
-pub fn get_all_process_modules_info(
-    process_id: u32,
-    read_module_data: bool,
-) -> Result<Vec<ModuleInfo>> {
+pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<ModuleInfo>> {
     unsafe {
         #[cfg(any(
             all(target_arch = "arm", target_pointer_width = "32"),
@@ -70,15 +67,6 @@ pub fn get_all_process_modules_info(
                 )
                 .to_string_lossy()
                 .to_string(),
-                module_data: if read_module_data {
-                    Some(memory::read_process_memory(
-                        process_id,
-                        m.mod_base_addr.cast(),
-                        m.mod_base_size as usize,
-                    ))
-                } else {
-                    None
-                },
             })
         }
 

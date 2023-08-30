@@ -10,7 +10,7 @@ pub fn get_logical_cpu_count() -> usize {
     }
 }
 
-/// Some of the code in this function is based on Mircea Neacsu's C++ code from
+/// Some of the code in the function is based on Neacsu's C++ code from
 /// <https://blog.csdn.net/youyudexiaowangzi/article/details/122308734>
 /// <https://www.codeproject.com/Tips/5263343/How-to-Get-the-BIOS-UUID>
 pub fn get_dmi_info() -> Result<DmiInfo> {

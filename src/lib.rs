@@ -2,9 +2,10 @@
 //!
 //! [![Crates.io](https://img.shields.io/crates/v/vcheat)](https://crates.io/crates/vcheat)
 //!
-//! "vcheat" 是用 rust 语言编写的适用于 windows 平台的进程作弊库
+//! "vcheat" 是用 Rust 语言编写的适用于 Windows 平台的进程作弊库
 //!
-//! ```rust
+//! ```example
+//! // https://github.com/vSylva/vcheat/tree/main/examples
 //! cargo run --example
 //! ```
 //!
@@ -14,7 +15,8 @@
 //!
 //! "vcheat" is a process cheating library designed for the Windows platform and written in Rust programming language
 //!
-//! ```rust
+//! ```example
+//! // https://github.com/vSylva/vcheat/tree/main/examples
 //! cargo run --example
 //! ```
 
@@ -71,7 +73,6 @@ pub struct ModuleInfo {
     pub module_handle: *mut core::ffi::c_void,
     pub module_name: String,
     pub module_path: String,
-    pub module_data: Option<Result<Vec<u8>>>,
 }
 
 #[repr(C)]

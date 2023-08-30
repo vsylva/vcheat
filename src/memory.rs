@@ -1,5 +1,8 @@
 use crate::*;
 
+/// Some of the code in the function is based on S3pt3mb3r's code from
+/// <https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs>
+/// <https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs>
 pub fn read_process_memory(
     process_id: u32,
     address: *const core::ffi::c_void,
@@ -8,12 +11,14 @@ pub fn read_process_memory(
     unsafe {
         let process_handle = open_process_handle(process_id)?;
 
+        let memory_basic_info = &mut MemoryBasicInformation {
+            ..core::mem::zeroed()
+        };
+
         let result = VirtualQueryEx(
             process_handle,
             address,
-            &mut MemoryBasicInformation {
-                ..core::mem::zeroed()
-            },
+            memory_basic_info,
             core::mem::size_of::<MemoryBasicInformation>(),
         );
 
@@ -24,35 +29,51 @@ pub fn read_process_memory(
             ));
         }
 
+        let is_page_readable = if memory_basic_info.state == 0x1000
+            && memory_basic_info.protect & (0x02 | 0x04 | 0x20 | 0x40) != 0
+        {
+            true
+        } else {
+            false
+        };
+
         let mut old_protect = 0u32;
 
         let mut new_protect = 4u32;
 
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            new_protect,
-            &mut old_protect,
-        );
+        if !is_page_readable {
+            let result = VirtualProtectEx(
+                process_handle,
+                address,
+                core::mem::size_of::<*mut core::ffi::c_void>(),
+                new_protect,
+                &mut old_protect,
+            );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
+            if result == 0 {
+                close_handle(process_handle)?;
+                return Err(format!(
+                    "VirtualProtectEx failed with return value: {result:X}"
+                ));
+            }
         }
 
-        let mut buffer: Vec<u8> = Vec::with_capacity(size);
-        buffer.set_len(size);
-
+        let mut buffer: Vec<u8> = vec![0u8; size];
+        let mut bytes_read: usize = 0;
         let result = ReadProcessMemory(
             process_handle,
             address,
             buffer.as_mut_ptr().cast(),
             size,
-            &mut 0,
+            &mut bytes_read,
         );
+
+        if bytes_read != size {
+            return Err(format!(
+                "lpNumberOfBytesRead: {:X} is not equal to size: {:X})",
+                bytes_read, size
+            ));
+        }
 
         if result == 0 {
             close_handle(process_handle)?;
@@ -61,19 +82,21 @@ pub fn read_process_memory(
             ));
         }
 
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            old_protect,
-            &mut new_protect,
-        );
+        if !is_page_readable {
+            let result = VirtualProtectEx(
+                process_handle,
+                address,
+                core::mem::size_of::<*mut core::ffi::c_void>(),
+                old_protect,
+                &mut new_protect,
+            );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
+            if result == 0 {
+                close_handle(process_handle)?;
+                return Err(format!(
+                    "VirtualProtectEx failed with return value: {result:X}"
+                ));
+            }
         }
 
         close_handle(process_handle)?;
@@ -82,6 +105,9 @@ pub fn read_process_memory(
     }
 }
 
+/// Some of the code in the function is based on S3pt3mb3r's code from
+/// <https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs>
+/// <https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs>
 pub fn write_process_memory(
     process_id: u32,
     address: *mut core::ffi::c_void,
@@ -90,12 +116,14 @@ pub fn write_process_memory(
     unsafe {
         let process_handle = open_process_handle(process_id)?;
 
+        let memory_basic_info = &mut MemoryBasicInformation {
+            ..core::mem::zeroed()
+        };
+
         let result = VirtualQueryEx(
             process_handle,
             address,
-            &mut MemoryBasicInformation {
-                ..core::mem::zeroed()
-            },
+            memory_basic_info,
             core::mem::size_of::<MemoryBasicInformation>(),
         );
 
@@ -106,23 +134,33 @@ pub fn write_process_memory(
             ));
         }
 
+        let is_page_writeable = if memory_basic_info.state == 0x1000
+            && memory_basic_info.protect & (0x04 | 0x40) != 0
+        {
+            true
+        } else {
+            false
+        };
+
         let mut old_protect = 0u32;
 
         let mut new_protect = 4u32;
 
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            new_protect,
-            &mut old_protect,
-        );
+        if !is_page_writeable {
+            let result = VirtualProtectEx(
+                process_handle,
+                address,
+                core::mem::size_of::<*mut core::ffi::c_void>(),
+                new_protect,
+                &mut old_protect,
+            );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
+            if result == 0 {
+                close_handle(process_handle)?;
+                return Err(format!(
+                    "VirtualProtectEx failed with return value: {result:X}"
+                ));
+            }
         }
 
         let mut number_of_bytes_written = 0;
@@ -140,19 +178,21 @@ pub fn write_process_memory(
             ));
         }
 
-        let result = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            old_protect,
-            &mut new_protect,
-        );
+        if !is_page_writeable {
+            let result = VirtualProtectEx(
+                process_handle,
+                address,
+                core::mem::size_of::<*mut core::ffi::c_void>(),
+                old_protect,
+                &mut new_protect,
+            );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
+            if result == 0 {
+                close_handle(process_handle)?;
+                return Err(format!(
+                    "VirtualProtectEx failed with return value: {result:X}"
+                ));
+            }
         }
 
         close_handle(process_handle)?;
@@ -161,7 +201,7 @@ pub fn write_process_memory(
     }
 }
 
-/// Some of the code in this function is based on sonodima's code from
+/// Some of the code in the function is based on sonodima's code from
 /// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
 /// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
 pub fn aob_scan_single_threaded(
@@ -199,7 +239,7 @@ pub fn aob_scan_single_threaded(
     let first_byte = signature[0];
     let first_mask = mask[0];
 
-    let mut address_array: Vec<usize> = Vec::new();
+    let mut offset_array: Vec<usize> = Vec::new();
 
     for i in 0..data.len() - signature.len() {
         if data[i] != first_byte && first_mask {
@@ -221,17 +261,17 @@ pub fn aob_scan_single_threaded(
             }
             status
         } {
-            address_array.push(i - start_offset);
+            offset_array.push(i - start_offset);
             if return_on_first {
                 break;
             }
         }
     }
-    address_array.sort();
-    Ok(address_array)
+    offset_array.sort();
+    Ok(offset_array)
 }
 
-/// Some of the code in this function is based on sonodima's code from
+/// Some of the code in the function is based on sonodima's code from
 /// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
 /// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
 pub fn aob_scan_multi_threaded(
@@ -285,7 +325,7 @@ pub fn aob_scan_multi_threaded(
 
     let finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let address_array = std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
+    let offset_array = std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
 
     let signature = &signature;
     let mask = &mask;
@@ -321,7 +361,7 @@ pub fn aob_scan_multi_threaded(
 
             running_thread_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-            let addres_array = address_array.clone();
+            let addres_array = offset_array.clone();
 
             scope.spawn(move || {
                 let data = &data[range.0..range.1];
@@ -384,11 +424,11 @@ pub fn aob_scan_multi_threaded(
     }
 
     found.load(std::sync::atomic::Ordering::SeqCst);
-    let mut address_array = if let Ok(val) = address_array.lock() {
+    let mut offset_array = if let Ok(val) = offset_array.lock() {
         val.to_vec()
     } else {
         return Err("Mutex lock failed".to_string());
     };
-    address_array.sort();
-    Ok(address_array)
+    offset_array.sort();
+    Ok(offset_array)
 }
