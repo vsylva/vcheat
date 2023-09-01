@@ -5,6 +5,7 @@
 "vcheat" 是用 Rust 语言编写的适用于 Windows 平台的进程作弊库
 
 ```rust
+// https://github.com/vSylva/vcheat/tree/main/examples
 cargo run --example
 ```
 
@@ -15,5 +16,6 @@ cargo run --example
 "vcheat" is a process cheating library designed for the Windows platform and written in Rust programming language
 
 ```rust
+// https://github.com/vSylva/vcheat/tree/main/examples
 cargo run --example
 ```

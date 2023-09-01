@@ -14,10 +14,7 @@ fn main() {
         process_scan_multi_threaded(process_name, module_name, return_on_first, max_thread_count);
     }
 
-    #[cfg(any(
-        all(target_arch = "arm", target_pointer_width = "32"),
-        target_arch = "x86"
-    ))]
+    #[cfg(target_arch = "x86")]
     {
         for process_info in vcheat::get_all_processes_info().unwrap() {
             if let Ok(is_wow64) = vcheat::is_wow64_process(process_info.process_id) {

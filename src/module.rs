@@ -2,18 +2,16 @@ use crate::*;
 
 pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<ModuleInfo>> {
     unsafe {
-        #[cfg(any(
-            all(target_arch = "arm", target_pointer_width = "32"),
-            target_arch = "x86"
-        ))]
+        #[cfg(target_arch = "x86")]
         {
-            let is_wow64_process = is_wow64_process(process_id)?;
+            let is_wow64_process: bool = is_wow64_process(process_id)?;
             if !is_wow64_process {
                 return Err(format!("The process({process_id}) is 64-bit"));
             }
         }
 
-        let snapshot_handle = CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
+        let snapshot_handle: *mut core::ffi::c_void =
+            CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
         if snapshot_handle.is_null() {
             return Err(format!(
@@ -21,10 +19,11 @@ pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<ModuleInfo>> 
             ));
         }
 
-        let module_entry = &mut core::mem::zeroed() as *mut ModuleEntry32W;
-        (*module_entry).dw_size = core::mem::size_of::<ModuleEntry32W>() as u32;
+        let module_entry: &mut ModuleEntry32W = &mut core::mem::zeroed::<ModuleEntry32W>();
 
-        let result = Module32FirstW(snapshot_handle, module_entry);
+        module_entry.dw_size = core::mem::size_of::<ModuleEntry32W>() as u32;
+
+        let result: i32 = Module32FirstW(snapshot_handle, module_entry);
 
         if result == 0 {
             close_handle(snapshot_handle)?;
@@ -33,19 +32,19 @@ pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<ModuleInfo>> 
             ));
         }
 
-        let mut module_entry_array = Vec::<ModuleEntry32W>::new();
+        let mut module_entry_array: Vec<ModuleEntry32W> = Vec::<ModuleEntry32W>::new();
 
-        module_entry_array.push(module_entry.read());
+        module_entry_array.push(module_entry.clone());
 
         while Module32NextW(snapshot_handle, module_entry) != 0 {
-            module_entry_array.push(module_entry.read());
+            module_entry_array.push(module_entry.clone());
         }
 
         if !snapshot_handle.is_null() {
             close_handle(snapshot_handle)?
         }
 
-        let mut module_info_array = Vec::<ModuleInfo>::new();
+        let mut module_info_array: Vec<ModuleInfo> = Vec::<ModuleInfo>::new();
 
         for m in module_entry_array {
             module_info_array.push(ModuleInfo {

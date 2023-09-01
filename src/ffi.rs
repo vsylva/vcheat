@@ -1,10 +1,7 @@
 #[link(name = "kernel32")]
 
 extern "system" {
-    #[cfg(any(
-        all(target_arch = "arm", target_pointer_width = "32"),
-        target_arch = "x86"
-    ))]
+    #[cfg(target_arch = "x86")]
     pub(crate) fn IsWow64Process(hProcess: *mut core::ffi::c_void, Wow64Process: *mut i32) -> i32;
 
     pub(crate) fn OpenProcess(

@@ -1,5 +1,72 @@
 use crate::*;
 
+/// Query Memory Protection Constants
+/// <https://learn.microsoft.com/en-us/windows/win32/Memory/memory-protection-constants>
+pub fn virtual_protect(
+    process_id: u32,
+    address: *const core::ffi::c_void,
+    new_protect: u32,
+) -> Result<u32> {
+    unsafe {
+        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
+
+        let result: usize = VirtualQueryEx(
+            process_handle,
+            address,
+            &mut core::mem::zeroed::<MemoryBasicInformation>(),
+            core::mem::size_of::<MemoryBasicInformation>(),
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualQueryEx failed with return value: {result:X}"
+            ));
+        }
+
+        let mut old_protect: u32 = 0;
+
+        // let mut new_protect_num: u32 = 0;
+
+        // for protect in new_protect {
+        //     new_protect_num |= match protect {
+        //         ProtectType::PageExecute => 0x10,
+        //         ProtectType::PageExecuteRead => 0x20,
+        //         ProtectType::PageExecuteReadwrite => 0x40,
+        //         ProtectType::PageExecuteWritecopy => 0x80,
+        //         ProtectType::PageNoaccess => 1,
+        //         ProtectType::PageReadonly => 2,
+        //         ProtectType::PageReadwrite => 4,
+        //         ProtectType::PageWritecopy => 8,
+        //         ProtectType::PageTargetsInvalidOrNoUpdate => 0x40000000,
+        //         ProtectType::PageGuard => 0x100,
+        //         ProtectType::PageNocache => 0x200,
+        //         ProtectType::PageWritecombine => 0x400,
+        //     };
+        // }
+
+        let result: i32 = VirtualProtectEx(
+            process_handle,
+            address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_protect,
+            // new_protect_num,
+            &mut old_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!(
+                "VirtualProtectEx failed with return value: {result:X}"
+            ));
+        }
+
+        close_handle(process_handle)?;
+
+        Ok(old_protect)
+    }
+}
+
 /// Some of the code in the function is based on S3pt3mb3r's code from
 /// <https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs>
 /// <https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs>
@@ -9,13 +76,13 @@ pub fn read_process_memory(
     size: usize,
 ) -> Result<Vec<u8>> {
     unsafe {
-        let process_handle = open_process_handle(process_id)?;
+        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
 
-        let memory_basic_info = &mut MemoryBasicInformation {
+        let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
             ..core::mem::zeroed()
         };
 
-        let result = VirtualQueryEx(
+        let result: usize = VirtualQueryEx(
             process_handle,
             address,
             memory_basic_info,
@@ -29,7 +96,7 @@ pub fn read_process_memory(
             ));
         }
 
-        let is_page_readable = if memory_basic_info.state == 0x1000
+        let is_page_readable: bool = if memory_basic_info.state == 0x1000
             && memory_basic_info.protect & (0x02 | 0x04 | 0x20 | 0x40) != 0
         {
             true
@@ -37,12 +104,12 @@ pub fn read_process_memory(
             false
         };
 
-        let mut old_protect = 0u32;
+        let mut old_protect: u32 = 0;
 
-        let mut new_protect = 4u32;
+        let mut new_protect: u32 = 0x04;
 
         if !is_page_readable {
-            let result = VirtualProtectEx(
+            let result: i32 = VirtualProtectEx(
                 process_handle,
                 address,
                 core::mem::size_of::<*mut core::ffi::c_void>(),
@@ -58,9 +125,9 @@ pub fn read_process_memory(
             }
         }
 
-        let mut buffer: Vec<u8> = vec![0u8; size];
+        let mut buffer: Vec<u8> = vec![0; size];
         let mut bytes_read: usize = 0;
-        let result = ReadProcessMemory(
+        let result: i32 = ReadProcessMemory(
             process_handle,
             address,
             buffer.as_mut_ptr().cast(),
@@ -83,7 +150,7 @@ pub fn read_process_memory(
         }
 
         if !is_page_readable {
-            let result = VirtualProtectEx(
+            let result: i32 = VirtualProtectEx(
                 process_handle,
                 address,
                 core::mem::size_of::<*mut core::ffi::c_void>(),
@@ -114,13 +181,13 @@ pub fn write_process_memory(
     data: &[u8],
 ) -> Result<usize> {
     unsafe {
-        let process_handle = open_process_handle(process_id)?;
+        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
 
-        let memory_basic_info = &mut MemoryBasicInformation {
+        let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
             ..core::mem::zeroed()
         };
 
-        let result = VirtualQueryEx(
+        let result: usize = VirtualQueryEx(
             process_handle,
             address,
             memory_basic_info,
@@ -134,7 +201,7 @@ pub fn write_process_memory(
             ));
         }
 
-        let is_page_writeable = if memory_basic_info.state == 0x1000
+        let is_page_writeable: bool = if memory_basic_info.state == 0x1000
             && memory_basic_info.protect & (0x04 | 0x40) != 0
         {
             true
@@ -142,12 +209,12 @@ pub fn write_process_memory(
             false
         };
 
-        let mut old_protect = 0u32;
+        let mut old_protect: u32 = 0;
 
-        let mut new_protect = 4u32;
+        let mut new_protect: u32 = 0x04;
 
         if !is_page_writeable {
-            let result = VirtualProtectEx(
+            let result: i32 = VirtualProtectEx(
                 process_handle,
                 address,
                 core::mem::size_of::<*mut core::ffi::c_void>(),
@@ -163,8 +230,8 @@ pub fn write_process_memory(
             }
         }
 
-        let mut number_of_bytes_written = 0;
-        let result = WriteProcessMemory(
+        let mut number_of_bytes_written: usize = 0;
+        let result: i32 = WriteProcessMemory(
             process_handle,
             address,
             data.as_ptr().cast(),
@@ -179,7 +246,7 @@ pub fn write_process_memory(
         }
 
         if !is_page_writeable {
-            let result = VirtualProtectEx(
+            let result: i32 = VirtualProtectEx(
                 process_handle,
                 address,
                 core::mem::size_of::<*mut core::ffi::c_void>(),
@@ -217,7 +284,7 @@ pub fn aob_scan_single_threaded(
             mask.push(false);
             signature.push(0);
         } else {
-            let number = match u8::from_str_radix(pair, 16) {
+            let number: u8 = match u8::from_str_radix(pair, 16) {
                 Ok(ok) => ok,
                 Err(err) => return Err(err.to_string()),
             };
@@ -226,8 +293,8 @@ pub fn aob_scan_single_threaded(
         }
     }
 
-    let mut start_offset = mask.iter().take_while(|&&x| x == false).count();
-    let end_offset = mask.iter().rev().take_while(|&&x| x == false).count();
+    let mut start_offset: usize = mask.iter().take_while(|&&x| x == false).count();
+    let end_offset: usize = mask.iter().rev().take_while(|&&x| x == false).count();
 
     if start_offset != mask.len() {
         signature = signature[start_offset..signature.len() - end_offset].to_vec();
@@ -236,8 +303,8 @@ pub fn aob_scan_single_threaded(
         start_offset = 0;
     }
 
-    let first_byte = signature[0];
-    let first_mask = mask[0];
+    let first_byte: u8 = signature[0];
+    let first_mask: bool = mask[0];
 
     let mut offset_array: Vec<usize> = Vec::new();
 
@@ -247,8 +314,8 @@ pub fn aob_scan_single_threaded(
         }
 
         if {
-            let data = &data[i..];
-            let mut status = true;
+            let data: &[u8] = &data[i..];
+            let mut status: bool = true;
             for (i, sig) in signature.iter().enumerate() {
                 if !mask[i] {
                     continue;
@@ -300,7 +367,7 @@ pub fn aob_scan_multi_threaded(
             mask.push(false);
             signature.push(0);
         } else {
-            let number = match u8::from_str_radix(pair, 16) {
+            let number: u8 = match u8::from_str_radix(pair, 16) {
                 Ok(ok) => ok,
                 Err(err) => return Err(err.to_string()),
             };
@@ -309,8 +376,8 @@ pub fn aob_scan_multi_threaded(
         }
     }
 
-    let mut start_offset = mask.iter().take_while(|&&x| x == false).count();
-    let end_offset = mask.iter().rev().take_while(|&&x| x == false).count();
+    let mut start_offset: usize = mask.iter().take_while(|&&x| x == false).count();
+    let end_offset: usize = mask.iter().rev().take_while(|&&x| x == false).count();
 
     if start_offset != mask.len() {
         signature = signature[start_offset..signature.len() - end_offset].to_vec();
@@ -319,31 +386,36 @@ pub fn aob_scan_multi_threaded(
         start_offset = 0;
     }
 
-    let running_thread_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let running_thread_count: std::sync::Arc<std::sync::atomic::AtomicUsize> =
+        std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-    let found = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let found: std::sync::Arc<std::sync::atomic::AtomicBool> =
+        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let finished: std::sync::Arc<std::sync::atomic::AtomicBool> =
+        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let offset_array = std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
+    let offset_array: std::sync::Arc<std::sync::Mutex<Vec<usize>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
 
-    let signature = &signature;
-    let mask = &mask;
+    let signature: &Vec<u8> = &signature;
+    let mask: &Vec<bool> = &mask;
 
     std::thread::scope(|scope| {
         for index in 0..thread_count {
-            let range = {
-                let data_size = data.len();
-                let chunks = thread_count;
-                let overlap = signature.len() - 1;
-                let chunk_size = data_size / chunks;
-                let remainder = data_size % chunks;
+            let range: (usize, usize) = {
+                let data_size: usize = data.len();
+                let chunks: usize = thread_count;
+                let overlap: usize = signature.len() - 1;
+                let chunk_size: usize = data_size / chunks;
+                let remainder: usize = data_size % chunks;
 
-                let start = index * chunk_size;
+                let start: usize = index * chunk_size;
 
-                let mut end = start + chunk_size + if index == chunks - 1 { remainder } else { 0 };
+                let mut end: usize =
+                    start + chunk_size + if index == chunks - 1 { remainder } else { 0 };
 
-                let start = start - if start >= overlap { overlap } else { 0 };
+                let start: usize = start - if start >= overlap { overlap } else { 0 };
 
                 end = end
                     + if end < data_size - overlap {
@@ -355,23 +427,24 @@ pub fn aob_scan_multi_threaded(
                 (start, end)
             };
 
-            let running_thread_count = running_thread_count.clone();
-            let finished = finished.clone();
-            let found = found.clone();
+            let running_thread_count: std::sync::Arc<std::sync::atomic::AtomicUsize> =
+                running_thread_count.clone();
+            let finished: std::sync::Arc<std::sync::atomic::AtomicBool> = finished.clone();
+            let found: std::sync::Arc<std::sync::atomic::AtomicBool> = found.clone();
 
             running_thread_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-            let addres_array = offset_array.clone();
+            let addres_array: std::sync::Arc<std::sync::Mutex<Vec<usize>>> = offset_array.clone();
 
             scope.spawn(move || {
-                let data = &data[range.0..range.1];
+                let data: &[u8] = &data[range.0..range.1];
 
-                let length = data.len() - signature.len();
+                let length: usize = data.len() - signature.len();
 
-                let first_byte = signature[0];
-                let first_mask = mask[0];
+                let first_byte: u8 = signature[0];
+                let first_mask: bool = mask[0];
 
-                let mut found_in = false;
+                let mut found_in: bool = false;
 
                 for i in 0..length {
                     if finished.load(std::sync::atomic::Ordering::Relaxed) {
@@ -383,8 +456,8 @@ pub fn aob_scan_multi_threaded(
                     }
 
                     if {
-                        let data = &data[i..];
-                        let mut status = true;
+                        let data: &[u8] = &data[i..];
+                        let mut status: bool = true;
                         for (i, sig) in signature.iter().enumerate() {
                             if !mask[i] {
                                 continue;
@@ -424,7 +497,7 @@ pub fn aob_scan_multi_threaded(
     }
 
     found.load(std::sync::atomic::Ordering::SeqCst);
-    let mut offset_array = if let Ok(val) = offset_array.lock() {
+    let mut offset_array: Vec<usize> = if let Ok(val) = offset_array.lock() {
         val.to_vec()
     } else {
         return Err("Mutex lock failed".to_string());

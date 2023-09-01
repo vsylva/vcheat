@@ -2,7 +2,7 @@ use crate::*;
 
 pub(crate) fn open_process_handle(process_id: u32) -> Result<*mut core::ffi::c_void> {
     unsafe {
-        let process_handle = OpenProcess(0x1F0FFF, 0, process_id);
+        let process_handle: *mut core::ffi::c_void = OpenProcess(0x1F0FFF, 0, process_id);
 
         if process_handle.is_null() {
             return Err(format!(
@@ -28,17 +28,14 @@ pub(crate) fn close_handle(handle: *mut core::ffi::c_void) -> Result<()> {
     }
 }
 
-#[cfg(any(
-    all(target_arch = "arm", target_pointer_width = "32"),
-    target_arch = "x86"
-))]
+#[cfg(target_arch = "x86")]
 pub fn is_wow64_process(process_id: u32) -> Result<bool> {
     unsafe {
-        let process_handle = open_process_handle(process_id)?;
+        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
 
-        let mut is_wow64 = 0;
+        let mut is_wow64: i32 = 0;
 
-        let result = IsWow64Process(process_handle, &mut is_wow64);
+        let result: i32 = IsWow64Process(process_handle, &mut is_wow64);
 
         close_handle(process_handle)?;
 
@@ -58,7 +55,7 @@ pub fn is_wow64_process(process_id: u32) -> Result<bool> {
 
 pub fn get_all_processes_info() -> Result<Vec<ProcessInfo>> {
     unsafe {
-        let snapshot_handle = CreateToolhelp32Snapshot(0x2, 0);
+        let snapshot_handle: *mut core::ffi::c_void = CreateToolhelp32Snapshot(0x2, 0);
 
         if snapshot_handle.is_null() {
             return Err(format!(
@@ -66,11 +63,11 @@ pub fn get_all_processes_info() -> Result<Vec<ProcessInfo>> {
             ));
         }
 
-        let process_entry = &mut core::mem::zeroed() as *mut ProcessEntry32W;
+        let process_entry: &mut ProcessEntry32W = &mut core::mem::zeroed::<ProcessEntry32W>();
 
-        (*process_entry).dw_size = core::mem::size_of::<ProcessEntry32W>() as u32;
+        process_entry.dw_size = core::mem::size_of::<ProcessEntry32W>() as u32;
 
-        let result = Process32FirstW(snapshot_handle, process_entry);
+        let result: i32 = Process32FirstW(snapshot_handle, process_entry);
 
         if result == 0 {
             close_handle(snapshot_handle)?;
@@ -79,19 +76,19 @@ pub fn get_all_processes_info() -> Result<Vec<ProcessInfo>> {
             ));
         }
 
-        let mut process_entry_array = Vec::<ProcessEntry32W>::new();
+        let mut process_entry_array: Vec<ProcessEntry32W> = Vec::<ProcessEntry32W>::new();
 
-        process_entry_array.push(process_entry.read());
+        process_entry_array.push(process_entry.clone());
 
         while Process32NextW(snapshot_handle, process_entry) != 0 {
-            process_entry_array.push(process_entry.read());
+            process_entry_array.push(process_entry.clone());
         }
 
         if !snapshot_handle.is_null() {
             close_handle(snapshot_handle)?
         }
 
-        let mut process_info_array = Vec::<ProcessInfo>::new();
+        let mut process_info_array: Vec<ProcessInfo> = Vec::<ProcessInfo>::new();
 
         for p in process_entry_array {
             process_info_array.push(ProcessInfo {
@@ -120,11 +117,11 @@ pub fn nt_get_all_processes_info() -> Result<Vec<SystemProcessInfo>> {
 
         NtQuerySystemInformation(5, core::ptr::null_mut(), 0, &mut return_length);
 
-        let mut buffer = vec![0u8; return_length as usize * 2];
+        let mut buffer: Vec<u8> = vec![0; return_length as usize * 2];
 
-        let result = NtQuerySystemInformation(
+        let result: i32 = NtQuerySystemInformation(
             5,
-            buffer.as_mut_ptr() as *mut core::ffi::c_void,
+            buffer.as_mut_ptr().cast(),
             return_length * 2,
             &mut return_length,
         );
@@ -135,12 +132,13 @@ pub fn nt_get_all_processes_info() -> Result<Vec<SystemProcessInfo>> {
             ));
         }
 
-        let mut process_info_array = Vec::<SystemProcessInformation>::new();
+        let mut process_info_array: Vec<SystemProcessInformation> =
+            Vec::<SystemProcessInformation>::new();
 
-        let mut current_offset: u32 = 0;
+        let mut current_offset: isize = 0;
 
-        let mut process_info = core::ptr::read::<SystemProcessInformation>(
-            buffer.as_ptr().offset(current_offset as isize).cast(),
+        let mut process_info: SystemProcessInformation = core::ptr::read::<SystemProcessInformation>(
+            buffer.as_ptr().offset(current_offset).cast(),
         );
 
         while process_info.next_entry_offset != 0 {
@@ -148,18 +146,18 @@ pub fn nt_get_all_processes_info() -> Result<Vec<SystemProcessInfo>> {
                 process_info_array.push(process_info.clone());
             }
 
-            current_offset += process_info.next_entry_offset;
+            current_offset += process_info.next_entry_offset as isize;
 
-            if buffer.as_ptr().offset(current_offset as isize).is_null() {
+            if buffer.as_ptr().offset(current_offset).is_null() {
                 break;
             }
 
             process_info = core::ptr::read::<SystemProcessInformation>(
-                buffer.as_ptr().offset(current_offset as isize).cast(),
+                buffer.as_ptr().offset(current_offset).cast(),
             );
         }
 
-        let mut nt_process_info_array = Vec::<SystemProcessInfo>::new();
+        let mut nt_process_info_array: Vec<SystemProcessInfo> = Vec::<SystemProcessInfo>::new();
 
         for p in process_info_array {
             nt_process_info_array.push(SystemProcessInfo {

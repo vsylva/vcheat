@@ -2,11 +2,12 @@ use crate::*;
 
 pub fn get_logical_cpu_count() -> usize {
     unsafe {
-        let system_info = &mut core::mem::zeroed() as *mut SystemInfo;
+        let system_info: &mut SystemInfo = &mut core::mem::zeroed::<SystemInfo>();
 
         GetSystemInfo(system_info);
 
-        system_info.read().dw_number_of_processors as usize
+        // TODO: revert to u32
+        system_info.dw_number_of_processors as usize
     }
 }
 
@@ -15,13 +16,13 @@ pub fn get_logical_cpu_count() -> usize {
 /// <https://www.codeproject.com/Tips/5263343/How-to-Get-the-BIOS-UUID>
 pub fn get_dmi_info() -> Result<DmiInfo> {
     unsafe {
-        let signature = *b"RSMB";
+        let signature: [u8; 4] = *b"RSMB";
         let signature: u32 = ((signature[0] as u32) << 24)
             | ((signature[1] as u32) << 16)
             | ((signature[2] as u32) << 8)
             | (signature[3] as u32);
 
-        let mut return_value = GetSystemFirmwareTable(signature, 0, core::ptr::null_mut(), 0);
+        let mut return_value: u32 = GetSystemFirmwareTable(signature, 0, core::ptr::null_mut(), 0);
 
         if return_value == 0 {
             return Err(format!(
@@ -29,7 +30,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             ));
         }
 
-        let mut buffer = vec![0u8; return_value as usize];
+        let mut buffer: Vec<u8> = vec![0; return_value as usize];
 
         return_value = GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_value);
 
@@ -39,41 +40,42 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             ));
         }
 
-        let get_string_by_dmi = |dm_header: *const DmiHeader, mut value: u8| -> Result<String> {
-            let get_c_str_len = |cstr: *const i8| -> isize {
-                let mut len = 0;
-                while cstr.offset(len).read() != 0 {
-                    len += 1;
+        let get_string_by_dmi: fn(*const DmiHeader, u8) -> Result<String> =
+            |dm_header: *const DmiHeader, mut value: u8| -> Result<String> {
+                let get_c_str_len: fn(*const i8) -> usize = |cstr: *const i8| -> usize {
+                    let mut len: usize = 0;
+                    while cstr.add(len).read() != 0 {
+                        len += 1;
+                    }
+                    len
+                };
+
+                let base: *const i8 = dm_header.cast::<i8>();
+
+                if value == 0 {
+                    return Err("Invalid".to_string());
                 }
-                len
+
+                let mut base: *const i8 = base.add(dm_header.read().length as usize);
+
+                while value > 1 && base.read() != 0 {
+                    base = base.add(get_c_str_len(base));
+                    base = base.add(1);
+                    value -= 1;
+                }
+
+                if base.read() == 0 {
+                    return Err("Bad index".to_string());
+                }
+
+                let len: usize = get_c_str_len(base);
+
+                let bp_vec: &[u8] = std::slice::from_raw_parts(base.cast::<u8>(), len);
+
+                Ok(String::from_utf8_lossy(bp_vec).to_string())
             };
 
-            let base = dm_header as *const i8;
-
-            if value == 0 {
-                return Err("Invalid".to_string());
-            }
-
-            let mut base = base.add(dm_header.read().length as usize);
-
-            while value > 1 && base.read() != 0 {
-                base = base.add(get_c_str_len(base) as usize);
-                base = base.add(1);
-                value -= 1;
-            }
-
-            if base.read() == 0 {
-                return Err("Bad index".to_string());
-            }
-
-            let len = get_c_str_len(base);
-
-            let bp_vec = std::slice::from_raw_parts(base.cast::<u8>(), len as usize);
-
-            Ok(String::from_utf8_lossy(bp_vec).to_string())
-        };
-
-        let smb = RawSMBIOSData {
+        let smb: RawSMBIOSData = RawSMBIOSData {
             used20_calling_method: buffer[0],
             smbiosmajor_version: buffer[1],
             smbiosminor_version: buffer[2],
@@ -82,7 +84,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             smbiostable_data: buffer[8..].to_vec(),
         };
 
-        let mut dmi_info = DmiInfo {
+        let mut dmi_info: DmiInfo = DmiInfo {
             bios_version: None,
             bios_release_date: None,
             bios_vendor: None,
@@ -97,14 +99,13 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
             system_family: None,
         };
 
-        let mut uuid = vec![0u8; 16];
+        let mut uuid: Vec<u8> = vec![0; 16];
 
-        let mut data = smb.smbiostable_data.as_ptr();
+        let mut data: *const u8 = smb.smbiostable_data.as_ptr();
 
-        let mut once_flag = false;
+        let mut once_flag: bool = false;
 
-        while (data as usize) < smb.smbiostable_data.as_ptr() as usize + smb.length as usize {
-            let mut next: *const u8;
+        while data < smb.smbiostable_data.as_ptr().add(smb.length as usize) {
             let h: *const DmiHeader = data.cast();
 
             if h.read().length < 4 {
@@ -162,11 +163,11 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
 
                 data = data.add(0x8);
 
-                let mut all_zero = true;
+                let mut all_zero: bool = true;
 
-                let mut all_one = true;
+                let mut all_one: bool = true;
 
-                let mut i = 0;
+                let mut i: isize = 0;
                 while i < 16 && (all_zero || all_one) {
                     if data.offset(i).read() != 0x00 {
                         all_zero = false;
@@ -179,7 +180,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
 
                 if !all_zero && !all_one {
                     for i in 0..4 {
-                        uuid[i] = data.offset(i as isize).read();
+                        uuid[i] = data.add(i).read();
                     }
 
                     uuid[5] = data.offset(5).read();
@@ -188,10 +189,10 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
                     uuid[6] = data.offset(6).read();
 
                     for j in 8..16 {
-                        uuid[j] = data.offset(j as isize).read();
+                        uuid[j] = data.add(j).read();
                     }
 
-                    let mut uuid_string = String::new();
+                    let mut uuid_string: String = String::new();
                     for i in 0..16 {
                         uuid_string.push_str(format!("{:02X}", uuid[i]).as_str());
                         if (i + 1) % 4 == 0 && i != 15 {
@@ -199,7 +200,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
                         }
                     }
 
-                    let mut guid = uuid.clone();
+                    let mut guid: Vec<u8> = uuid.clone();
 
                     for (i, j) in (0..4).zip((0..4).rev()) {
                         guid[i] = uuid[j];
@@ -212,7 +213,7 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
 
                     dmi_info.system_uuid = Some((uuid, uuid_string));
 
-                    let mut guid_string = String::new();
+                    let mut guid_string: String = String::new();
                     for i in 0..16 {
                         guid_string.push_str(format!("{:02X}", guid[i]).as_str());
                         if i == 3 {
@@ -227,9 +228,9 @@ pub fn get_dmi_info() -> Result<DmiInfo> {
                 break;
             }
 
-            next = data.add(h.read().length as usize);
+            let mut next: *const u8 = data.add(h.read().length as usize);
 
-            while (next as usize) < smb.smbiostable_data.as_ptr() as usize + smb.length as usize
+            while next < smb.smbiostable_data.as_ptr().add(smb.length as usize)
                 && (next.offset(0).read() != 0 || next.offset(1).read() != 0)
             {
                 next = next.add(1);

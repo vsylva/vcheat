@@ -50,6 +50,7 @@ pub struct SystemProcessInfo {
     pub process_thread_count: u32,
     pub process_name: String,
     pub process_base_priority_class: i32,
+    // TODO: revert to isize
     pub process_id: u32,
     pub process_handle_count: u32,
     pub process_session_id: u32,
@@ -89,6 +90,27 @@ pub struct DmiInfo {
     pub system_serial_number: Option<String>,
     pub system_uuid: Option<(Vec<u8>, String)>,
     pub system_guid: Option<(Vec<u8>, String)>,
+    // TODO: convert
+    // pub system_uuid: Option<([u8; 16], String)>,
+    // pub system_guid: Option<([u8; 16], String)>,
     pub system_sku_number: Option<String>,
     pub system_family: Option<String>,
 }
+
+// #[repr(C)]
+// #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub enum ProtectType {
+//     PageExecute = 0x10,
+//     PageExecuteRead = 0x20,
+//     PageExecuteReadwrite = 0x40,
+//     PageExecuteWritecopy = 0x80,
+//     PageNoaccess = 0x01,
+//     PageReadonly = 0x02,
+//     PageReadwrite = 0x04,
+//     PageWritecopy = 0x08,
+//     PageTargetsInvalidOrNoUpdate = 0x40000000 | 0x40000000,
+
+//     PageGuard = 0x100,
+//     PageNocache = 0x200,
+//     PageWritecombine = 0x400,
+// }
