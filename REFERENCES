@@ -1,0 +1,38 @@
+**Some of the code in the function is based on S3pt3mb3r's code from**
+
+- https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs
+
+- https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs
+
+- read_process_memory
+- write_process_memory
+- virtual_protect
+
+---
+
+**Some of the code in the function is based on sonodima's code from**
+
+- https://github.com/sonodima/aobscan/blob/master/src/builder.rs
+
+- https://github.com/sonodima/aobscan/blob/master/src/pattern.rs
+
+- aob_scan_single_threaded
+- aob_scan_multi_threaded
+
+---
+
+**Some of the code in the function is based on Neacsu's C++ code from**
+
+- https://www.codeproject.com/Tips/5263343/How-to-Get-the-BIOS-UUID
+
+- get_dmi_info
+
+---
+
+**Articles**
+
+- https://blog.csdn.net/youyudexiaowangzi/article/details/122308734
+
+- https://rustcc.cn/article?id=4528d74d-a4ff-480f-9f85-156b6b8d9338
+
+- https://blog.csdn.net/youyudexiaowangzi/article/details/122308734

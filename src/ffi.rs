@@ -1,5 +1,4 @@
 #[link(name = "kernel32")]
-
 extern "system" {
     #[cfg(target_arch = "x86")]
     pub(crate) fn IsWow64Process(hProcess: *mut core::ffi::c_void, Wow64Process: *mut i32) -> i32;
@@ -54,6 +53,19 @@ extern "system" {
         dwLength: usize,
     ) -> usize;
 
+    pub(crate) fn VirtualAlloc(
+        lpAddress: *mut core::ffi::c_void,
+        dwSize: usize,
+        flAllocationType: u32,
+        flProtect: u32,
+    ) -> *mut core::ffi::c_void;
+
+    pub(crate) fn VirtualFree(
+        lpAddress: *mut core::ffi::c_void,
+        dwSize: usize,
+        dwFreeType: u32,
+    ) -> i32;
+
     pub(crate) fn ReadProcessMemory(
         hProcess: *mut core::ffi::c_void,
         lpBaseAddress: *const core::ffi::c_void,
@@ -77,10 +89,46 @@ extern "system" {
         BufferSize: u32,
     ) -> u32;
 
+    pub(crate) fn GetSystemDirectoryA(lpBuffer: *mut i8, uSize: u32) -> u32;
+
+    pub(crate) fn GetSystemDirectoryW(lpBuffer: *mut u16, uSize: u32) -> u32;
+
+    pub(crate) fn LoadLibraryA(lpLibFileName: *const i8) -> *mut core::ffi::c_void;
+
+    pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> *mut core::ffi::c_void;
+
+    pub(crate) fn AllocConsole() -> i32;
+
+    pub(crate) fn FreeConsole() -> i32;
+
+    pub(crate) fn SetConsoleMode(hConsoleHandle: *mut core::ffi::c_void, dwMode: u32) -> i32;
+
+    pub(crate) fn GetStdHandle(nStdHandle: u32) -> *mut core::ffi::c_void;
+
+    pub(crate) fn GetConsoleMode(hConsoleHandle: *mut core::ffi::c_void, lpMode: *mut u32) -> i32;
+
+    pub(crate) fn GetProcAddress(
+        hModule: *mut core::ffi::c_void,
+        lpProcName: *const i8,
+    ) -> *mut core::ffi::c_void;
+
+    // pub(crate) fn GetLastError() -> u32;
+
+    // pub(crate) fn FormatMessageW(
+    //     dwFlags: u32,
+    //     lpSource: *const core::ffi::c_void,
+    //     dwMessageId: u32,
+    //     dwLanguageId: u32,
+    //     lpBuffer: *mut u16,
+    //     nSize: u32,
+    //     Arguments: *const *const i8,
+    // ) -> u32;
+
+    // pub(crate) fn SetLastError(dwErrCode: u32);
+
 }
 
 #[link(name = "ntdll")]
-
 extern "system" {
 
     pub(crate) fn NtQuerySystemInformation(
@@ -164,7 +212,7 @@ pub(crate) struct MemoryBasicInformation {
     pub(crate) base_address: *mut core::ffi::c_void,
     pub(crate) allocation_base: *mut core::ffi::c_void,
     pub(crate) allocation_protect: u32,
-    #[cfg(target_arch = "x86_64")]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     pub(crate) partition_id: u16,
     pub(crate) region_size: usize,
     pub(crate) state: u32,

@@ -1,277 +1,185 @@
-use crate::*;
+use crate::{ffi::*, process::*, types::*};
 
-/// Query Memory Protection Constants
-/// <https://learn.microsoft.com/en-us/windows/win32/Memory/memory-protection-constants>
-pub fn virtual_protect(
+type Result<T> = std::result::Result<T, String>;
+
+pub(crate) unsafe fn read_process_memory(
     process_id: u32,
-    address: *const core::ffi::c_void,
-    new_protect: u32,
-) -> Result<u32> {
-    unsafe {
-        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
-
-        let result: usize = VirtualQueryEx(
-            process_handle,
-            address,
-            &mut core::mem::zeroed::<MemoryBasicInformation>(),
-            core::mem::size_of::<MemoryBasicInformation>(),
-        );
-
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualQueryEx failed with return value: {result:X}"
-            ));
-        }
-
-        let mut old_protect: u32 = 0;
-
-        // let mut new_protect_num: u32 = 0;
-
-        // for protect in new_protect {
-        //     new_protect_num |= match protect {
-        //         ProtectType::PageExecute => 0x10,
-        //         ProtectType::PageExecuteRead => 0x20,
-        //         ProtectType::PageExecuteReadwrite => 0x40,
-        //         ProtectType::PageExecuteWritecopy => 0x80,
-        //         ProtectType::PageNoaccess => 1,
-        //         ProtectType::PageReadonly => 2,
-        //         ProtectType::PageReadwrite => 4,
-        //         ProtectType::PageWritecopy => 8,
-        //         ProtectType::PageTargetsInvalidOrNoUpdate => 0x40000000,
-        //         ProtectType::PageGuard => 0x100,
-        //         ProtectType::PageNocache => 0x200,
-        //         ProtectType::PageWritecombine => 0x400,
-        //     };
-        // }
-
-        let result: i32 = VirtualProtectEx(
-            process_handle,
-            address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
-            new_protect,
-            // new_protect_num,
-            &mut old_protect,
-        );
-
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualProtectEx failed with return value: {result:X}"
-            ));
-        }
-
-        close_handle(process_handle)?;
-
-        Ok(old_protect)
-    }
-}
-
-/// Some of the code in the function is based on S3pt3mb3r's code from
-/// <https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs>
-/// <https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs>
-pub fn read_process_memory(
-    process_id: u32,
-    address: *const core::ffi::c_void,
+    target_address: *const core::ffi::c_void,
     size: usize,
 ) -> Result<Vec<u8>> {
-    unsafe {
-        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
+    let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
 
-        let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
-            ..core::mem::zeroed()
-        };
+    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
+        ..core::mem::zeroed()
+    };
 
-        let result: usize = VirtualQueryEx(
-            process_handle,
-            address,
-            memory_basic_info,
-            core::mem::size_of::<MemoryBasicInformation>(),
-        );
+    let result: usize = VirtualQueryEx(
+        process_handle,
+        target_address,
+        memory_basic_info,
+        core::mem::size_of::<MemoryBasicInformation>(),
+    );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualQueryEx failed with return value: {result:X}"
-            ));
-        }
-
-        let is_page_readable: bool = if memory_basic_info.state == 0x1000
-            && memory_basic_info.protect & (0x02 | 0x04 | 0x20 | 0x40) != 0
-        {
-            true
-        } else {
-            false
-        };
-
-        let mut old_protect: u32 = 0;
-
-        let mut new_protect: u32 = 0x04;
-
-        if !is_page_readable {
-            let result: i32 = VirtualProtectEx(
-                process_handle,
-                address,
-                core::mem::size_of::<*mut core::ffi::c_void>(),
-                new_protect,
-                &mut old_protect,
-            );
-
-            if result == 0 {
-                close_handle(process_handle)?;
-                return Err(format!(
-                    "VirtualProtectEx failed with return value: {result:X}"
-                ));
-            }
-        }
-
-        let mut buffer: Vec<u8> = vec![0; size];
-        let mut bytes_read: usize = 0;
-        let result: i32 = ReadProcessMemory(
-            process_handle,
-            address,
-            buffer.as_mut_ptr().cast(),
-            size,
-            &mut bytes_read,
-        );
-
-        if bytes_read != size {
-            return Err(format!(
-                "lpNumberOfBytesRead: {:X} is not equal to size: {:X})",
-                bytes_read, size
-            ));
-        }
-
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "ReadProcessMemory failed with return value: {result:X}"
-            ));
-        }
-
-        if !is_page_readable {
-            let result: i32 = VirtualProtectEx(
-                process_handle,
-                address,
-                core::mem::size_of::<*mut core::ffi::c_void>(),
-                old_protect,
-                &mut new_protect,
-            );
-
-            if result == 0 {
-                close_handle(process_handle)?;
-                return Err(format!(
-                    "VirtualProtectEx failed with return value: {result:X}"
-                ));
-            }
-        }
-
+    if result == 0 {
         close_handle(process_handle)?;
-
-        Ok(buffer)
+        return Err(format!("VirtualQueryEx failed with result: {result:X}"));
     }
+
+    let is_page_readable: bool = if memory_basic_info.state == 0x1000
+        && memory_basic_info.protect & (0x02 | 0x04 | 0x20 | 0x40) != 0
+    {
+        true
+    } else {
+        false
+    };
+
+    let mut old_page_protect: u32 = 0;
+
+    let mut new_page_protect: u32 = 0x04;
+
+    if !is_page_readable {
+        let result: i32 = VirtualProtectEx(
+            process_handle,
+            target_address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_page_protect,
+            &mut old_page_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!("VirtualProtectEx failed with result: {result:X}"));
+        }
+    }
+
+    let mut buffer: Vec<u8> = vec![0; size];
+
+    let mut bytes_read: usize = 0;
+
+    let result: i32 = ReadProcessMemory(
+        process_handle,
+        target_address,
+        buffer.as_mut_ptr().cast(),
+        size,
+        &mut bytes_read,
+    );
+
+    if bytes_read != size {
+        return Err(format!(
+            "lpNumberOfBytesRead: {:X} is not equal to size: {:X})",
+            bytes_read, size
+        ));
+    }
+
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("ReadProcessMemory failed with result: {result:X}"));
+    }
+
+    if !is_page_readable {
+        let result: i32 = VirtualProtectEx(
+            process_handle,
+            target_address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            old_page_protect,
+            &mut new_page_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!("VirtualProtectEx failed with result: {result:X}"));
+        }
+    }
+
+    close_handle(process_handle)?;
+
+    Ok(buffer)
 }
 
-/// Some of the code in the function is based on S3pt3mb3r's code from
-/// <https://github.com/pseuxide/toy-arms/blob/master/external/src/lib.rs>
-/// <https://github.com/pseuxide/toy-arms/blob/master/toy-arms_utils/src/pattern_scan.rs>
-pub fn write_process_memory(
+pub(crate) unsafe fn write_process_memory(
     process_id: u32,
-    address: *mut core::ffi::c_void,
+    target_address: *mut core::ffi::c_void,
     data: &[u8],
 ) -> Result<usize> {
-    unsafe {
-        let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
+    let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
 
-        let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
-            ..core::mem::zeroed()
-        };
+    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
+        ..core::mem::zeroed()
+    };
 
-        let result: usize = VirtualQueryEx(
-            process_handle,
-            address,
-            memory_basic_info,
-            core::mem::size_of::<MemoryBasicInformation>(),
-        );
+    let result: usize = VirtualQueryEx(
+        process_handle,
+        target_address,
+        memory_basic_info,
+        core::mem::size_of::<MemoryBasicInformation>(),
+    );
 
-        if result == 0 {
-            close_handle(process_handle)?;
-            return Err(format!(
-                "VirtualQueryEx failed with return value: {result:X}"
-            ));
-        }
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("VirtualQueryEx failed with result: {result:X}"));
+    }
 
-        let is_page_writeable: bool = if memory_basic_info.state == 0x1000
-            && memory_basic_info.protect & (0x04 | 0x40) != 0
-        {
+    let is_page_writeable: bool =
+        if memory_basic_info.state == 0x1000 && memory_basic_info.protect & (0x04 | 0x40) != 0 {
             true
         } else {
             false
         };
 
-        let mut old_protect: u32 = 0;
+    let mut old_page_protect: u32 = 0;
 
-        let mut new_protect: u32 = 0x04;
+    let mut new_page_protect: u32 = 0x04;
 
-        if !is_page_writeable {
-            let result: i32 = VirtualProtectEx(
-                process_handle,
-                address,
-                core::mem::size_of::<*mut core::ffi::c_void>(),
-                new_protect,
-                &mut old_protect,
-            );
-
-            if result == 0 {
-                close_handle(process_handle)?;
-                return Err(format!(
-                    "VirtualProtectEx failed with return value: {result:X}"
-                ));
-            }
-        }
-
-        let mut number_of_bytes_written: usize = 0;
-        let result: i32 = WriteProcessMemory(
+    if !is_page_writeable {
+        let result: i32 = VirtualProtectEx(
             process_handle,
-            address,
-            data.as_ptr().cast(),
-            data.len(),
-            &mut number_of_bytes_written,
+            target_address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            new_page_protect,
+            &mut old_page_protect,
         );
+
         if result == 0 {
             close_handle(process_handle)?;
-            return Err(format!(
-                "WriteProcessMemory failed with return value: {result:X}"
-            ));
+            return Err(format!("VirtualProtectEx failed with result: {result:X}"));
         }
-
-        if !is_page_writeable {
-            let result: i32 = VirtualProtectEx(
-                process_handle,
-                address,
-                core::mem::size_of::<*mut core::ffi::c_void>(),
-                old_protect,
-                &mut new_protect,
-            );
-
-            if result == 0 {
-                close_handle(process_handle)?;
-                return Err(format!(
-                    "VirtualProtectEx failed with return value: {result:X}"
-                ));
-            }
-        }
-
-        close_handle(process_handle)?;
-
-        Ok(number_of_bytes_written)
     }
+
+    let mut number_of_bytes_written: usize = 0;
+
+    let result: i32 = WriteProcessMemory(
+        process_handle,
+        target_address,
+        data.as_ptr().cast(),
+        data.len(),
+        &mut number_of_bytes_written,
+    );
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("WriteProcessMemory failed with result: {result:X}"));
+    }
+
+    if !is_page_writeable {
+        let result: i32 = VirtualProtectEx(
+            process_handle,
+            target_address,
+            core::mem::size_of::<*mut core::ffi::c_void>(),
+            old_page_protect,
+            &mut new_page_protect,
+        );
+
+        if result == 0 {
+            close_handle(process_handle)?;
+            return Err(format!("VirtualProtectEx failed with result: {result:X}"));
+        }
+    }
+
+    close_handle(process_handle)?;
+
+    Ok(number_of_bytes_written)
 }
 
-/// Some of the code in the function is based on sonodima's code from
-/// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
-/// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
-pub fn aob_scan_single_threaded(
+pub(crate) fn aob_scan_single_threaded(
     pattern: &str,
     data: &[u8],
     return_on_first: bool,
@@ -338,14 +246,11 @@ pub fn aob_scan_single_threaded(
     Ok(offset_array)
 }
 
-/// Some of the code in the function is based on sonodima's code from
-/// <https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
-/// <https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>
-pub fn aob_scan_multi_threaded(
+pub(crate) fn aob_scan_multi_threaded(
     pattern: &str,
     data: &[u8],
     return_on_first: bool,
-    thread_count: usize,
+    thread_count: u32,
 ) -> Result<Vec<usize>> {
     if pattern.is_empty() {
         return Err("Pattern cannot be empty".to_string());
@@ -358,6 +263,8 @@ pub fn aob_scan_multi_threaded(
     if thread_count < 2 {
         return Err("Thread count must be greater than one".to_string());
     }
+
+    let thread_count = thread_count as usize;
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
     let mut mask: Vec<bool> = Vec::<bool>::new();
@@ -457,7 +364,9 @@ pub fn aob_scan_multi_threaded(
 
                     if {
                         let data: &[u8] = &data[i..];
+
                         let mut status: bool = true;
+
                         for (i, sig) in signature.iter().enumerate() {
                             if !mask[i] {
                                 continue;
@@ -497,11 +406,145 @@ pub fn aob_scan_multi_threaded(
     }
 
     found.load(std::sync::atomic::Ordering::SeqCst);
+
     let mut offset_array: Vec<usize> = if let Ok(val) = offset_array.lock() {
         val.to_vec()
     } else {
         return Err("Mutex lock failed".to_string());
     };
+
     offset_array.sort();
     Ok(offset_array)
+}
+
+pub(crate) unsafe fn standard_alloc(size: usize) -> Result<*mut u8> {
+    let layout: std::alloc::Layout =
+        match std::alloc::Layout::from_size_align(size, std::mem::size_of::<u8>()) {
+            Ok(ok) => ok,
+            Err(err) => return Err(err.to_string()),
+        };
+
+    let allocated_address: *mut u8 = std::alloc::alloc(layout);
+
+    if allocated_address.is_null() {
+        return Err("Failed to allocate memory".to_string());
+    }
+
+    Ok(allocated_address)
+}
+
+pub(crate) unsafe fn standard_free(target_address: *mut u8, size: usize) -> Result<()> {
+    let layout: std::alloc::Layout =
+        match std::alloc::Layout::from_size_align(size, std::mem::size_of::<u8>()) {
+            Ok(ok) => ok,
+            Err(err) => return Err(err.to_string()),
+        };
+
+    std::alloc::dealloc(target_address, layout);
+
+    Ok(())
+}
+
+pub(crate) unsafe fn virtual_alloc(
+    target_address: *mut core::ffi::c_void,
+    size: usize,
+    mem_allocation: u32,
+    page_protect: u32,
+) -> Result<*mut core::ffi::c_void> {
+    let allocated_address = VirtualAlloc(target_address, size, mem_allocation, page_protect);
+
+    if allocated_address.is_null() {
+        return Err("VirtualAlloc failed".to_string());
+    }
+
+    Ok(allocated_address)
+}
+
+pub(crate) unsafe fn virtual_free(
+    target_address: *mut core::ffi::c_void,
+    size: usize,
+    mem_free: u32,
+) -> Result<()> {
+    if 0 == VirtualFree(target_address, size, mem_free) {
+        return Err("VirtualFree failed".to_string());
+    }
+    Ok(())
+}
+
+pub(crate) unsafe fn virtual_query(
+    process_id: u32,
+    target_address: *mut core::ffi::c_void,
+) -> Result<MemoryInfo> {
+    let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
+
+    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
+        ..core::mem::zeroed()
+    };
+
+    let result: usize = VirtualQueryEx(
+        process_handle,
+        target_address,
+        memory_basic_info,
+        core::mem::size_of::<MemoryBasicInformation>(),
+    );
+
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("VirtualQueryEx failed with result: {result:X}"));
+    }
+
+    close_handle(process_handle)?;
+
+    let memory_info: MemoryInfo = MemoryInfo {
+        memory_base_address: memory_basic_info.base_address,
+        memory_allocation_base_address: memory_basic_info.allocation_base,
+        memory_allocation_protect: memory_basic_info.allocation_protect,
+        #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+        memory_partition_id: memory_basic_info.partition_id,
+        memory_region_size: memory_basic_info.region_size,
+        memory_state: memory_basic_info.state,
+        memory_page_protect: memory_basic_info.protect,
+        memory_type: memory_basic_info.type_,
+    };
+
+    Ok(memory_info)
+}
+
+pub(crate) unsafe fn virtual_protect(
+    process_id: u32,
+    target_address: *const core::ffi::c_void,
+    new_page_protect: u32,
+) -> Result<u32> {
+    let process_handle: *mut core::ffi::c_void = open_process_handle(process_id)?;
+
+    let result: usize = VirtualQueryEx(
+        process_handle,
+        target_address,
+        &mut core::mem::zeroed::<MemoryBasicInformation>(),
+        core::mem::size_of::<MemoryBasicInformation>(),
+    );
+
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("VirtualQueryEx failed with result: {result:X}"));
+    }
+
+    let mut old_page_protect: u32 = 0;
+
+    let result: i32 = VirtualProtectEx(
+        process_handle,
+        target_address,
+        core::mem::size_of::<*mut core::ffi::c_void>(),
+        new_page_protect,
+        &mut old_page_protect,
+    );
+
+    if result == 0 {
+        close_handle(process_handle)?;
+        return Err(format!("VirtualProtectEx failed with result: {result:X}"));
+    }
+
+    close_handle(process_handle)?;
+
+    Ok(old_page_protect)
 }

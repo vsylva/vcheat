@@ -6,7 +6,7 @@ fn main() {
     file_scan_single_threaded(module_path, return_on_first);
     file_scan_multi_threaded(module_path, return_on_first, max_thread_count);
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     {
         let process_name = "Explorer.exe";
         let module_name = "Explorer.exe";
@@ -55,7 +55,7 @@ fn process_scan_single_threaded<S: AsRef<str>>(
                 if module_info.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
                     let module_data = vcheat::read_process_memory(
                         process_info.process_id,
-                        module_info.module_address.cast(),
+                        module_info.module_base_address.cast(),
                         module_info.module_size as usize,
                     )
                     .unwrap();
@@ -92,7 +92,7 @@ fn process_scan_multi_threaded<S: AsRef<str>>(
     process_name: S,
     module_name: S,
     return_on_first: bool,
-    thread_count: usize,
+    thread_count: u32,
 ) {
     let now = std::time::Instant::now();
 
@@ -106,7 +106,7 @@ fn process_scan_multi_threaded<S: AsRef<str>>(
                 if module_info.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
                     let module_data = vcheat::read_process_memory(
                         process_info.process_id,
-                        module_info.module_address.cast(),
+                        module_info.module_base_address.cast(),
                         module_info.module_size as usize,
                     )
                     .unwrap();
@@ -161,7 +161,7 @@ fn file_scan_single_threaded<P: AsRef<std::path::Path>>(path: P, return_on_first
 fn file_scan_multi_threaded<P: AsRef<std::path::Path>>(
     path: P,
     return_on_first: bool,
-    thread_count: usize,
+    thread_count: u32,
 ) {
     let file_data = std::fs::read(path.as_ref()).unwrap();
 

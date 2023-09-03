@@ -11,7 +11,7 @@ fn main() {
         }
     }
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     {
         read_write_memory("explorer.Exe", "ExPlorEr.eXe");
     }
@@ -26,7 +26,7 @@ fn read_write_memory<S: AsRef<str>>(process_name: S, module_name: S) {
                 if module_info.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
                     let read_data = vcheat::read_process_memory(
                         process_info.process_id,
-                        module_info.module_address.cast(),
+                        module_info.module_base_address.cast(),
                         8,
                     )
                     .unwrap();
@@ -37,7 +37,7 @@ fn read_write_memory<S: AsRef<str>>(process_name: S, module_name: S) {
                     );
                     let num_bytes_writte = vcheat::write_process_memory(
                         process_info.process_id,
-                        module_info.module_address.cast(),
+                        module_info.module_base_address.cast(),
                         &read_data,
                     )
                     .unwrap();

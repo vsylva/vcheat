@@ -14,7 +14,7 @@ fn main() {
         }
     }
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86_64"))]
+    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
     {
         print_process_info("Explorer.exe");
         print_module_info("Explorer.exe", "ntdll.DLL");
@@ -28,30 +28,24 @@ fn print_dmi_info() {
     let dmi_info = vcheat::get_dmi_info().unwrap();
     println!(
         "bios_embedded_controller_firmware_version: {}",
-        dmi_info.bios_embedded_controller_firmware_version.unwrap()
+        dmi_info.bios_embedded_controller_firmware_version
     );
-    println!("bios_release_date: {}", dmi_info.bios_release_date.unwrap());
-    println!("bios_vendor: {}", dmi_info.bios_vendor.unwrap());
-    println!("bios_version: {}", dmi_info.bios_version.unwrap());
+    println!("bios_release_date: {}", dmi_info.bios_release_date);
+    println!("bios_vendor: {}", dmi_info.bios_vendor);
+    println!("bios_version: {}", dmi_info.bios_version);
 
-    println!("system_family: {}", dmi_info.system_family.unwrap());
-    let result = dmi_info.system_guid.unwrap();
-    println!("system_guid_vec: {:X?}", result.0);
-    println!("system_guid_string: {}", result.1);
-    let result = dmi_info.system_uuid.unwrap();
-    println!("system_uuid_vec: {:X?}", result.0);
-    println!("system_uuid_string: {}", result.1);
-    println!(
-        "system_manufacturer: {}",
-        dmi_info.system_manufacturer.unwrap()
-    );
-    println!("system_product: {}", dmi_info.system_product.unwrap());
-    println!(
-        "system_serial_number: {}",
-        dmi_info.system_serial_number.unwrap()
-    );
-    println!("system_sku_number: {}", dmi_info.system_sku_number.unwrap());
-    println!("system_version: {}", dmi_info.system_version.unwrap());
+    println!("system_family: {}", dmi_info.system_family);
+    let guid = dmi_info.system_guid;
+    println!("system_guid_vec: {:X?}", guid.0);
+    println!("system_guid_string: {}", guid.1);
+    let uuid = dmi_info.system_uuid;
+    println!("system_uuid_vec: {:X?}", uuid.0);
+    println!("system_uuid_string: {}", uuid.1);
+    println!("system_manufacturer: {}", dmi_info.system_manufacturer);
+    println!("system_product: {}", dmi_info.system_product);
+    println!("system_serial_number: {}", dmi_info.system_serial_number);
+    println!("system_sku_number: {}", dmi_info.system_sku_number);
+    println!("system_version: {}", dmi_info.system_version);
 }
 
 fn print_process_info<S: AsRef<str>>(process_name: S) {
@@ -80,8 +74,8 @@ fn print_module_info<S: AsRef<str>>(process_name: S, module_name: S) {
                 if module_info.module_name.to_lowercase() == module_name.as_ref().to_lowercase() {
                     println!("process id: {}", module_info.process_id);
                     println!("module name: {}", module_info.module_name);
-                    println!("module handle: {:X?}", module_info.module_handle as usize);
-                    println!("module address: {:X?}", module_info.module_address as usize);
+                    println!("module handle: {:p}", module_info.module_handle);
+                    println!("module address: {:p}", module_info.module_base_address);
                     println!("module path: {}", module_info.module_path);
                 }
             }
