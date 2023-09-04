@@ -1,4 +1,4 @@
-pub mod memory {
+pub(crate) mod memory {
     type Result<T> = std::result::Result<T, String>;
 
     pub fn read_process_memory(
@@ -92,7 +92,7 @@ pub mod memory {
     }
 }
 
-pub mod module {
+pub(crate) mod module {
     type Result<T> = std::result::Result<T, String>;
 
     pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<crate::types::ModuleInfo>> {
@@ -114,7 +114,7 @@ pub mod module {
     }
 }
 
-pub mod process {
+pub(crate) mod process {
 
     type Result<T> = std::result::Result<T, String>;
 
@@ -148,14 +148,14 @@ pub mod process {
     }
 
     pub fn set_console_mode<T: Into<u32>>(
-        standard_handle: crate::types::StandardHandleType,
+        standard_handle: crate::types::StandardHandle,
         console_mode: T,
     ) -> Result<()> {
         unsafe { crate::process::set_console_mode(standard_handle.into(), console_mode.into()) }
     }
 }
 
-pub mod system {
+pub(crate) mod system {
     type Result<T> = std::result::Result<T, String>;
 
     pub fn get_logical_cpu_count() -> u32 {
@@ -167,7 +167,7 @@ pub mod system {
     }
 }
 
-pub mod types {
+pub(crate) mod types {
 
     pub use crate::types::*;
 }

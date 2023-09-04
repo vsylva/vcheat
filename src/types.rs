@@ -68,7 +68,7 @@ pub struct DmiInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PageProtectType {
+pub enum PageProtect {
     /// 0x10
     Execute,
     /// 0x20
@@ -105,7 +105,7 @@ pub enum PageProtectType {
     EnclaveUnvalidated,
 }
 
-impl Into<u32> for PageProtectType {
+impl Into<u32> for PageProtect {
     fn into(self) -> u32 {
         match self {
             Self::Execute => 0x10,
@@ -130,15 +130,15 @@ impl Into<u32> for PageProtectType {
     }
 }
 
-impl core::ops::BitOr<PageProtectType> for PageProtectType {
+impl core::ops::BitOr<PageProtect> for PageProtect {
     type Output = u32;
 
-    fn bitor(self, rhs: PageProtectType) -> Self::Output {
+    fn bitor(self, rhs: PageProtect) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl core::ops::BitOr<u32> for PageProtectType {
+impl core::ops::BitOr<u32> for PageProtect {
     type Output = u32;
 
     fn bitor(self, rhs: u32) -> Self::Output {
@@ -146,28 +146,28 @@ impl core::ops::BitOr<u32> for PageProtectType {
     }
 }
 
-impl core::ops::BitOr<PageProtectType> for u32 {
+impl core::ops::BitOr<PageProtect> for u32 {
     type Output = u32;
 
-    fn bitor(self, rhs: PageProtectType) -> Self::Output {
+    fn bitor(self, rhs: PageProtect) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl PartialEq<u32> for PageProtectType {
+impl PartialEq<u32> for PageProtect {
     fn eq(&self, other: &u32) -> bool {
         Into::<u32>::into(self.clone()) == *other
     }
 }
 
-impl PartialEq<PageProtectType> for u32 {
-    fn eq(&self, other: &PageProtectType) -> bool {
+impl PartialEq<PageProtect> for u32 {
+    fn eq(&self, other: &PageProtect) -> bool {
         *self == Into::<u32>::into(other.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum MemAllocationType {
+pub enum MemAllocation {
     /// 0x00001000
     Commit,
     /// 0x00002000
@@ -187,7 +187,7 @@ pub enum MemAllocationType {
     WriteWatch,
 }
 
-impl Into<u32> for MemAllocationType {
+impl Into<u32> for MemAllocation {
     fn into(self) -> u32 {
         match self {
             Self::Commit => 0x00001000,
@@ -203,15 +203,15 @@ impl Into<u32> for MemAllocationType {
     }
 }
 
-impl core::ops::BitOr<MemAllocationType> for MemAllocationType {
+impl core::ops::BitOr<MemAllocation> for MemAllocation {
     type Output = u32;
 
-    fn bitor(self, rhs: MemAllocationType) -> Self::Output {
+    fn bitor(self, rhs: MemAllocation) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl core::ops::BitOr<u32> for MemAllocationType {
+impl core::ops::BitOr<u32> for MemAllocation {
     type Output = u32;
 
     fn bitor(self, rhs: u32) -> Self::Output {
@@ -219,28 +219,28 @@ impl core::ops::BitOr<u32> for MemAllocationType {
     }
 }
 
-impl core::ops::BitOr<MemAllocationType> for u32 {
+impl core::ops::BitOr<MemAllocation> for u32 {
     type Output = u32;
 
-    fn bitor(self, rhs: MemAllocationType) -> Self::Output {
+    fn bitor(self, rhs: MemAllocation) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl PartialEq<u32> for MemAllocationType {
+impl PartialEq<u32> for MemAllocation {
     fn eq(&self, other: &u32) -> bool {
         Into::<u32>::into(self.clone()) == *other
     }
 }
 
-impl PartialEq<MemAllocationType> for u32 {
-    fn eq(&self, other: &MemAllocationType) -> bool {
+impl PartialEq<MemAllocation> for u32 {
+    fn eq(&self, other: &MemAllocation) -> bool {
         *self == Into::<u32>::into(other.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum MemFreeType {
+pub enum MemFree {
     /// 0x00004000
     Decommit,
     /// 0x00008000
@@ -252,7 +252,7 @@ pub enum MemFreeType {
     PreservePlaceholder,
 }
 
-impl Into<u32> for MemFreeType {
+impl Into<u32> for MemFree {
     fn into(self) -> u32 {
         match self {
             Self::Decommit => 0x00004000,
@@ -264,15 +264,15 @@ impl Into<u32> for MemFreeType {
     }
 }
 
-impl core::ops::BitOr<MemFreeType> for MemFreeType {
+impl core::ops::BitOr<MemFree> for MemFree {
     type Output = u32;
 
-    fn bitor(self, rhs: MemFreeType) -> Self::Output {
+    fn bitor(self, rhs: MemFree) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl core::ops::BitOr<u32> for MemFreeType {
+impl core::ops::BitOr<u32> for MemFree {
     type Output = u32;
 
     fn bitor(self, rhs: u32) -> Self::Output {
@@ -280,28 +280,28 @@ impl core::ops::BitOr<u32> for MemFreeType {
     }
 }
 
-impl core::ops::BitOr<MemFreeType> for u32 {
+impl core::ops::BitOr<MemFree> for u32 {
     type Output = u32;
 
-    fn bitor(self, rhs: MemFreeType) -> Self::Output {
+    fn bitor(self, rhs: MemFree) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl PartialEq<u32> for MemFreeType {
+impl PartialEq<u32> for MemFree {
     fn eq(&self, other: &u32) -> bool {
         Into::<u32>::into(self.clone()) == *other
     }
 }
 
-impl PartialEq<MemFreeType> for u32 {
-    fn eq(&self, other: &MemFreeType) -> bool {
+impl PartialEq<MemFree> for u32 {
+    fn eq(&self, other: &MemFree) -> bool {
         *self == Into::<u32>::into(other.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum StandardHandleType {
+pub enum StandardHandle {
     /// 0xFFFFFFF6
     InputHandle,
     /// 0xFFFFFFF5
@@ -310,7 +310,7 @@ pub enum StandardHandleType {
     ErrorHandle,
 }
 
-impl Into<u32> for StandardHandleType {
+impl Into<u32> for StandardHandle {
     fn into(self) -> u32 {
         match self {
             Self::InputHandle => 0xFFFFFFF6,
@@ -320,15 +320,15 @@ impl Into<u32> for StandardHandleType {
     }
 }
 
-impl core::ops::BitOr<StandardHandleType> for StandardHandleType {
+impl core::ops::BitOr<StandardHandle> for StandardHandle {
     type Output = u32;
 
-    fn bitor(self, rhs: StandardHandleType) -> Self::Output {
+    fn bitor(self, rhs: StandardHandle) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl core::ops::BitOr<u32> for StandardHandleType {
+impl core::ops::BitOr<u32> for StandardHandle {
     type Output = u32;
 
     fn bitor(self, rhs: u32) -> Self::Output {
@@ -336,28 +336,28 @@ impl core::ops::BitOr<u32> for StandardHandleType {
     }
 }
 
-impl core::ops::BitOr<StandardHandleType> for u32 {
+impl core::ops::BitOr<StandardHandle> for u32 {
     type Output = u32;
 
-    fn bitor(self, rhs: StandardHandleType) -> Self::Output {
+    fn bitor(self, rhs: StandardHandle) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl PartialEq<u32> for StandardHandleType {
+impl PartialEq<u32> for StandardHandle {
     fn eq(&self, other: &u32) -> bool {
         Into::<u32>::into(self.clone()) == *other
     }
 }
 
-impl PartialEq<StandardHandleType> for u32 {
-    fn eq(&self, other: &StandardHandleType) -> bool {
+impl PartialEq<StandardHandle> for u32 {
+    fn eq(&self, other: &StandardHandle) -> bool {
         *self == Into::<u32>::into(other.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ConsoleModeType {
+pub enum ConsoleMode {
     /// 0x0004
     EnableEchoInput,
     /// 0x0020
@@ -387,7 +387,7 @@ pub enum ConsoleModeType {
     EnableLvbGridWorldwide,
 }
 
-impl Into<u32> for ConsoleModeType {
+impl Into<u32> for ConsoleMode {
     fn into(self) -> u32 {
         match self {
             Self::EnableEchoInput => 0x0004,
@@ -408,15 +408,15 @@ impl Into<u32> for ConsoleModeType {
     }
 }
 
-impl core::ops::BitOr<ConsoleModeType> for ConsoleModeType {
+impl core::ops::BitOr<ConsoleMode> for ConsoleMode {
     type Output = u32;
 
-    fn bitor(self, rhs: ConsoleModeType) -> Self::Output {
+    fn bitor(self, rhs: ConsoleMode) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl core::ops::BitOr<u32> for ConsoleModeType {
+impl core::ops::BitOr<u32> for ConsoleMode {
     type Output = u32;
 
     fn bitor(self, rhs: u32) -> Self::Output {
@@ -424,22 +424,22 @@ impl core::ops::BitOr<u32> for ConsoleModeType {
     }
 }
 
-impl core::ops::BitOr<ConsoleModeType> for u32 {
+impl core::ops::BitOr<ConsoleMode> for u32 {
     type Output = u32;
 
-    fn bitor(self, rhs: ConsoleModeType) -> Self::Output {
+    fn bitor(self, rhs: ConsoleMode) -> Self::Output {
         Into::<u32>::into(self) | Into::<u32>::into(rhs)
     }
 }
 
-impl PartialEq<u32> for ConsoleModeType {
+impl PartialEq<u32> for ConsoleMode {
     fn eq(&self, other: &u32) -> bool {
         Into::<u32>::into(self.clone()) == *other
     }
 }
 
-impl PartialEq<ConsoleModeType> for u32 {
-    fn eq(&self, other: &ConsoleModeType) -> bool {
+impl PartialEq<ConsoleMode> for u32 {
+    fn eq(&self, other: &ConsoleMode) -> bool {
         *self == Into::<u32>::into(other.clone())
     }
 }

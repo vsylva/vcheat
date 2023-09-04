@@ -15,14 +15,14 @@ fn main() {
 
     assert_eq!(
         standard_query_info.memory_page_protect,
-        vcheat::PageProtectType::ReadWrite
+        vcheat::PageProtect::ReadWrite
     );
 
     let virtual_allocated_address = vcheat::virtual_alloc(
         core::ptr::null_mut(),
         size,
-        vcheat::MemAllocationType::Reserve | vcheat::MemAllocationType::Commit,
-        vcheat::PageProtectType::ExecuteRead,
+        vcheat::MemAllocation::Reserve | vcheat::MemAllocation::Commit,
+        vcheat::PageProtect::ExecuteRead,
     )
     .unwrap();
 
@@ -38,10 +38,10 @@ fn main() {
 
     assert_eq!(
         query_info.memory_page_protect,
-        vcheat::PageProtectType::ExecuteRead
+        vcheat::PageProtect::ExecuteRead
     );
 
     vcheat::standard_free(standard_allocated_address, size).unwrap();
 
-    vcheat::virtual_free(virtual_allocated_address, 0, vcheat::MemFreeType::Release).unwrap();
+    vcheat::virtual_free(virtual_allocated_address, 0, vcheat::MemFree::Release).unwrap();
 }

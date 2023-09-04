@@ -20,7 +20,7 @@
 //! cargo run --example
 //! ```
 
-pub mod exports;
+mod exports;
 mod ffi;
 mod memory;
 mod module;
