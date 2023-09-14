@@ -20,12 +20,10 @@
 //! cargo run --example
 //! ```
 
+mod core;
 mod exports;
 mod ffi;
-mod memory;
-mod module;
-mod process;
-mod system;
-mod types;
 
-pub use exports::{memory::*, module::*, process::*, system::*, types::*};
+pub use exports::*;
+
+type Result<T> = ::core::result::Result<T, String>;

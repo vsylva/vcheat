@@ -1,56 +1,61 @@
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub struct ProcessInfo {
-    pub process_id: u32,
-    pub process_thread_count: u32,
-    pub process_parent_process_id: u32,
-    pub process_base_priority_class: i32,
-    pub process_name: String,
+    pub id: u32,
+    pub thread_count: u32,
+    pub parent_process_id: u32,
+    pub base_priority_class: i32,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub struct SystemProcessInfo {
-    pub process_thread_count: u32,
-    pub process_name: String,
-    pub process_base_priority_class: i32,
-    pub process_id: isize,
-    pub process_handle_count: u32,
-    pub process_session_id: u32,
-    pub process_peak_virtual_size: usize,
-    pub process_virtual_size: usize,
-    pub process_peak_working_set_size: usize,
-    pub process_working_set_size: usize,
-    pub process_quota_paged_pool_usage: usize,
-    pub process_quota_non_paged_pool_usage: usize,
-    pub process_pagefile_usage: usize,
-    pub process_peak_pagefile_usage: usize,
-    pub process_private_page_count: usize,
+    pub thread_count: u32,
+    pub name: String,
+    pub base_priority_class: i32,
+    pub id: isize,
+    pub handle_count: u32,
+    pub session_id: u32,
+    pub peak_virtual_size: usize,
+    pub virtual_size: usize,
+    pub peak_working_set_size: usize,
+    pub working_set_size: usize,
+    pub quota_paged_pool_usage: usize,
+    pub quota_non_paged_pool_usage: usize,
+    pub pagefile_usage: usize,
+    pub peak_pagefile_usage: usize,
+    pub private_page_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub struct ModuleInfo {
     pub process_id: u32,
-    pub module_base_address: *mut u8,
-    pub module_size: u32,
-    pub module_handle: *mut core::ffi::c_void,
-    pub module_name: String,
-    pub module_path: String,
+    pub base_address: *mut u8,
+    pub size: u32,
+    pub handle: *mut core::ffi::c_void,
+    pub name: String,
+    pub path: String,
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub struct MemoryInfo {
-    pub memory_base_address: *mut core::ffi::c_void,
-    pub memory_allocation_base_address: *mut core::ffi::c_void,
-    pub memory_allocation_protect: u32,
+    pub base_address: *mut core::ffi::c_void,
+    pub allocation_base_address: *mut core::ffi::c_void,
+    pub allocation_protect: u32,
     #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    pub memory_partition_id: u16,
-    pub memory_region_size: usize,
-    pub memory_state: u32,
-    pub memory_page_protect: u32,
-    pub memory_type: u32,
+    pub partition_id: u16,
+    pub region_size: usize,
+    pub state: u32,
+    pub page_protect: u32,
+    pub type_: u32,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub struct DmiInfo {
     pub bios_version: String,
     pub bios_release_date: String,
@@ -68,6 +73,7 @@ pub struct DmiInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub enum PageProtect {
     /// 0x10
     Execute,
@@ -167,6 +173,7 @@ impl PartialEq<PageProtect> for u32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub enum MemAllocation {
     /// 0x00001000
     Commit,
@@ -240,6 +247,7 @@ impl PartialEq<MemAllocation> for u32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub enum MemFree {
     /// 0x00004000
     Decommit,
@@ -301,6 +309,7 @@ impl PartialEq<MemFree> for u32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub enum StandardHandle {
     /// 0xFFFFFFF6
     InputHandle,
@@ -357,6 +366,7 @@ impl PartialEq<StandardHandle> for u32 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
 pub enum ConsoleMode {
     /// 0x0004
     EnableEchoInput,

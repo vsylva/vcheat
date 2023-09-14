@@ -1,28 +1,27 @@
-pub(crate) mod memory {
-    type Result<T> = std::result::Result<T, String>;
+pub mod memory {
 
     pub fn read_process_memory(
-        process_id: u32,
-        target_address: *const core::ffi::c_void,
+        process_handle: *mut core::ffi::c_void,
+        address: *const core::ffi::c_void,
         size: usize,
-    ) -> Result<Vec<u8>> {
-        unsafe { crate::memory::read_process_memory(process_id, target_address, size) }
+    ) -> crate::Result<Vec<u8>> {
+        unsafe { crate::core::memory::read_process_memory(process_handle, address, size) }
     }
 
-    pub fn write_process_memory(
-        process_id: u32,
-        target_address: *mut core::ffi::c_void,
-        data: &[u8],
-    ) -> Result<usize> {
-        unsafe { crate::memory::write_process_memory(process_id, target_address, data) }
+    pub fn write_process_memory<T>(
+        process_handle: *mut core::ffi::c_void,
+        address: *mut core::ffi::c_void,
+        data: &[T],
+    ) -> crate::Result<usize> {
+        unsafe { crate::core::memory::write_process_memory(process_handle, address, data) }
     }
 
     pub fn aob_scan_single_threaded(
         pattern: &str,
         data: &[u8],
         return_on_first: bool,
-    ) -> Result<Vec<usize>> {
-        crate::memory::aob_scan_single_threaded(pattern, data, return_on_first)
+    ) -> crate::Result<Vec<usize>> {
+        crate::core::memory::aob_scan_single_threaded(pattern, data, return_on_first)
     }
 
     pub fn aob_scan_multi_threaded(
@@ -30,27 +29,27 @@ pub(crate) mod memory {
         data: &[u8],
         return_on_first: bool,
         thread_count: u32,
-    ) -> Result<Vec<usize>> {
-        crate::memory::aob_scan_multi_threaded(pattern, data, return_on_first, thread_count)
+    ) -> crate::Result<Vec<usize>> {
+        crate::core::memory::aob_scan_multi_threaded(pattern, data, return_on_first, thread_count)
     }
 
-    pub fn standard_alloc(size: usize) -> Result<*mut u8> {
-        unsafe { crate::memory::standard_alloc(size) }
+    pub fn standard_alloc(size: usize) -> crate::Result<*mut u8> {
+        unsafe { crate::core::memory::standard_alloc(size) }
     }
 
-    pub fn standard_free(target_address: *mut u8, size: usize) -> Result<()> {
-        unsafe { crate::memory::standard_free(target_address, size) }
+    pub fn standard_free(address: *mut u8, size: usize) -> crate::Result<()> {
+        unsafe { crate::core::memory::standard_free(address, size) }
     }
 
-    pub fn virtual_alloc<T: Into<u32>, U: Into<u32>>(
-        target_address: *mut core::ffi::c_void,
+    pub fn virtual_alloc(
+        address: *mut core::ffi::c_void,
         size: usize,
-        mem_allocation: T,
-        page_protect: U,
-    ) -> Result<*mut core::ffi::c_void> {
+        mem_allocation: u32,
+        page_protect: u32,
+    ) -> crate::Result<*mut core::ffi::c_void> {
         unsafe {
-            crate::memory::virtual_alloc(
-                target_address,
+            crate::core::memory::virtual_alloc(
+                address,
                 size,
                 mem_allocation.into(),
                 page_protect.into(),
@@ -58,116 +57,157 @@ pub(crate) mod memory {
         }
     }
 
-    pub fn virtual_free<T: Into<u32>>(
-        target_address: *mut core::ffi::c_void,
+    pub fn virtual_free(
+        address: *mut core::ffi::c_void,
         size: usize,
-        mem_free: T,
-    ) -> Result<()> {
+        mem_free: u32,
+    ) -> crate::Result<()> {
+        unsafe { crate::core::memory::virtual_free(address, size, mem_free.into()) }
+    }
+
+    pub fn virtual_alloc_ex(
+        process_handle: *mut core::ffi::c_void,
+        address: *mut core::ffi::c_void,
+        size: usize,
+        mem_allocation: u32,
+        page_protect: u32,
+    ) -> crate::Result<*mut core::ffi::c_void> {
+        unsafe {
+            crate::core::memory::virtual_alloc_ex(
+                process_handle,
+                address,
+                size,
+                mem_allocation.into(),
+                page_protect.into(),
+            )
+        }
+    }
+
+    pub fn virtual_free_ex(
+        process_handle: *mut core::ffi::c_void,
+        address: *mut core::ffi::c_void,
+        size: usize,
+        mem_free: u32,
+    ) -> crate::Result<()> {
         unsafe {
             let mem_free = mem_free.into();
 
             if mem_free == 0x00008000 {
-                return crate::memory::virtual_free(target_address, 0, mem_free);
+                return crate::core::memory::virtual_free_ex(process_handle, address, 0, mem_free);
             }
 
-            crate::memory::virtual_free(target_address, size, mem_free)
+            crate::core::memory::virtual_free(address, size, mem_free)
         }
     }
 
     pub fn virtual_query(
-        process_id: u32,
-        target_address: *mut core::ffi::c_void,
-    ) -> Result<crate::types::MemoryInfo> {
-        unsafe { crate::memory::virtual_query(process_id, target_address) }
+        process_handle: *mut core::ffi::c_void,
+        address: *mut core::ffi::c_void,
+    ) -> crate::Result<crate::core::types::MemoryInfo> {
+        unsafe { crate::core::memory::virtual_query(process_handle, address) }
     }
 
-    pub fn virtual_protect<T: Into<u32>>(
-        process_id: u32,
-        target_address: *const core::ffi::c_void,
-        new_page_protect: T,
-    ) -> Result<u32> {
+    pub fn virtual_protect(
+        process_handle: *mut core::ffi::c_void,
+        address: *const core::ffi::c_void,
+        new_page_protect: u32,
+    ) -> crate::Result<u32> {
         unsafe {
-            crate::memory::virtual_protect(process_id, target_address, new_page_protect.into())
+            crate::core::memory::virtual_protect(process_handle, address, new_page_protect.into())
         }
     }
 }
 
-pub(crate) mod module {
-    type Result<T> = std::result::Result<T, String>;
+pub mod module {
 
-    pub fn get_all_process_modules_info(process_id: u32) -> Result<Vec<crate::types::ModuleInfo>> {
-        unsafe { crate::module::get_all_process_modules_info(process_id) }
-    }
-    pub fn load_library<S: AsRef<std::path::Path>>(path: S) -> Result<*mut core::ffi::c_void> {
-        unsafe { crate::module::load_library(path) }
+    pub fn get_modules_info(process_id: u32) -> crate::Result<Vec<crate::core::types::ModuleInfo>> {
+        unsafe { crate::core::module::get_modules_info(process_id) }
     }
 
-    pub fn load_system_library<S: AsRef<str>>(file_name: S) -> Result<*mut core::ffi::c_void> {
-        unsafe { crate::module::load_system_library(file_name) }
+    pub fn load_library(dll_path: &str) -> crate::Result<*mut core::ffi::c_void> {
+        unsafe { crate::core::module::load_library(dll_path) }
     }
 
-    pub fn get_proc_address<S: AsRef<str>>(
+    pub fn load_system_library(dll_name: &str) -> crate::Result<*mut core::ffi::c_void> {
+        unsafe { crate::core::module::load_system_library(dll_name) }
+    }
+
+    pub fn free_library(module_handle: *mut core::ffi::c_void) -> crate::Result<()> {
+        unsafe { crate::core::module::free_library(module_handle) }
+    }
+
+    pub fn get_proc_address(
         module_handle: *mut core::ffi::c_void,
-        proc_name: S,
-    ) -> *mut core::ffi::c_void {
-        unsafe { crate::module::get_proc_address(module_handle, proc_name) }
+        proc_name: &str,
+    ) -> crate::Result<*mut core::ffi::c_void> {
+        unsafe { crate::core::module::get_proc_address(module_handle, proc_name.as_ref()) }
+    }
+
+    pub fn inject_dll(process_handle: *mut core::ffi::c_void, dll_path: &str) -> crate::Result<()> {
+        unsafe { crate::core::module::inject_dll(process_handle, dll_path) }
+    }
+
+    pub fn eject_dll(
+        process_handle: *mut core::ffi::c_void,
+        module_handle: *mut core::ffi::c_void,
+    ) -> crate::Result<()> {
+        unsafe { crate::core::module::eject_dll(process_handle, module_handle) }
     }
 }
 
-pub(crate) mod process {
+pub mod process {
 
-    type Result<T> = std::result::Result<T, String>;
-
-    pub fn open_process_handle(process_id: u32) -> Result<*mut core::ffi::c_void> {
-        unsafe { crate::process::open_process_handle(process_id) }
+    pub fn open_process(process_id: u32) -> crate::Result<*mut core::ffi::c_void> {
+        unsafe { crate::core::process::open_process(process_id) }
     }
 
-    pub fn close_handle(handle: *mut core::ffi::c_void) -> Result<()> {
-        unsafe { crate::process::close_handle(handle) }
+    pub fn close_handle(handle: *mut core::ffi::c_void) -> crate::Result<()> {
+        unsafe { crate::core::process::close_handle(handle) }
     }
 
-    #[cfg(target_arch = "x86")]
-    pub fn is_wow64_process(process_id: u32) -> Result<bool> {
-        unsafe { crate::process::is_wow64_process(process_id) }
+    pub fn is_wow64_process(process_handle: *mut core::ffi::c_void) -> crate::Result<bool> {
+        unsafe { crate::core::process::is_wow64_process(process_handle) }
     }
 
-    pub fn get_all_processes_info() -> Result<Vec<crate::types::ProcessInfo>> {
-        unsafe { crate::process::get_all_processes_info() }
+    pub fn get_processes_info() -> crate::Result<Vec<crate::core::types::ProcessInfo>> {
+        unsafe { crate::core::process::get_processes_info() }
     }
 
-    pub fn nt_get_all_processes_info() -> Result<Vec<crate::types::SystemProcessInfo>> {
-        unsafe { crate::process::nt_get_all_processes_info() }
+    /// The function is not stable, but it provides more information compared to non-NT functions
+    pub fn nt_get_processes_info() -> crate::Result<Vec<crate::core::types::SystemProcessInfo>> {
+        unsafe { crate::core::process::nt_get_processes_info() }
     }
 
-    pub fn alloc_console() -> Result<()> {
-        unsafe { crate::process::alloc_console() }
+    pub fn alloc_console() -> crate::Result<()> {
+        unsafe { crate::core::process::alloc_console() }
     }
 
-    pub fn free_console() -> Result<()> {
-        unsafe { crate::process::free_console() }
+    pub fn free_console() -> crate::Result<()> {
+        unsafe { crate::core::process::free_console() }
     }
 
-    pub fn set_console_mode<T: Into<u32>>(
-        standard_handle: crate::types::StandardHandle,
-        console_mode: T,
-    ) -> Result<()> {
-        unsafe { crate::process::set_console_mode(standard_handle.into(), console_mode.into()) }
+    pub fn set_console_mode(
+        standard_handle: crate::core::types::StandardHandle,
+        console_mode: u32,
+    ) -> crate::Result<()> {
+        unsafe {
+            crate::core::process::set_console_mode(standard_handle.into(), console_mode.into())
+        }
     }
 }
 
-pub(crate) mod system {
-    type Result<T> = std::result::Result<T, String>;
+pub mod system {
 
     pub fn get_logical_cpu_count() -> u32 {
-        unsafe { crate::system::get_logical_cpu_count() }
+        unsafe { crate::core::system::get_logical_cpu_count() }
     }
 
-    pub fn get_dmi_info() -> Result<crate::types::DmiInfo> {
-        unsafe { crate::system::get_dmi_info() }
+    pub fn get_dmi_info() -> crate::Result<crate::core::types::DmiInfo> {
+        unsafe { crate::core::system::get_dmi_info() }
     }
 }
 
-pub(crate) mod types {
+pub mod types {
 
-    pub use crate::types::*;
+    pub use crate::core::types::*;
 }

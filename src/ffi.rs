@@ -1,6 +1,19 @@
 #[link(name = "kernel32")]
+
 extern "system" {
-    #[cfg(target_arch = "x86")]
+
+    pub(crate) fn WaitForSingleObject(hHandle: *mut core::ffi::c_void, dwMilliseconds: u32) -> u32;
+
+    pub(crate) fn CreateRemoteThread(
+        hProcess: *mut core::ffi::c_void,
+        lpThreadAttributes: *const SecurityAttributes,
+        dwStackSize: usize,
+        lpStartAddress: LpthreadStartRoutine,
+        lpParameter: *const core::ffi::c_void,
+        dwCreationFlags: u32,
+        lpThreadId: *mut u32,
+    ) -> *mut core::ffi::c_void;
+
     pub(crate) fn IsWow64Process(hProcess: *mut core::ffi::c_void, Wow64Process: *mut i32) -> i32;
 
     pub(crate) fn OpenProcess(
@@ -60,6 +73,21 @@ extern "system" {
         flProtect: u32,
     ) -> *mut core::ffi::c_void;
 
+    pub(crate) fn VirtualAllocEx(
+        hProcess: *mut core::ffi::c_void,
+        lpAddress: *mut core::ffi::c_void,
+        dwSize: usize,
+        flAllocationType: u32,
+        flProtect: u32,
+    ) -> *mut core::ffi::c_void;
+
+    pub(crate) fn VirtualFreeEx(
+        hProcess: *mut core::ffi::c_void,
+        lpAddress: *mut core::ffi::c_void,
+        dwSize: usize,
+        dwFreeType: u32,
+    ) -> i32;
+
     pub(crate) fn VirtualFree(
         lpAddress: *mut core::ffi::c_void,
         dwSize: usize,
@@ -89,13 +117,15 @@ extern "system" {
         BufferSize: u32,
     ) -> u32;
 
-    pub(crate) fn GetSystemDirectoryA(lpBuffer: *mut i8, uSize: u32) -> u32;
+    // pub(crate) fn GetSystemDirectoryA(lpBuffer: *mut i8, uSize: u32) -> u32;
 
     pub(crate) fn GetSystemDirectoryW(lpBuffer: *mut u16, uSize: u32) -> u32;
 
-    pub(crate) fn LoadLibraryA(lpLibFileName: *const i8) -> *mut core::ffi::c_void;
+    // pub(crate) fn LoadLibraryA(lpLibFileName: *const i8) -> *mut core::ffi::c_void;
 
     pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> *mut core::ffi::c_void;
+
+    pub(crate) fn FreeLibrary(hLibModule: *mut core::ffi::c_void) -> i32;
 
     pub(crate) fn AllocConsole() -> i32;
 
@@ -129,6 +159,7 @@ extern "system" {
 }
 
 #[link(name = "ntdll")]
+
 extern "system" {
 
     pub(crate) fn NtQuerySystemInformation(
@@ -140,8 +171,21 @@ extern "system" {
 
 }
 
+pub(crate) type LpthreadStartRoutine =
+    unsafe extern "system" fn(lpThreadParameter: *mut core::ffi::c_void) -> u32;
+
 #[repr(C)]
 #[derive(Debug, Clone)]
+
+pub(crate) struct SecurityAttributes {
+    pub(crate) n_length: u32,
+    pub(crate) lp_security_descriptor: *const core::ffi::c_void,
+    pub(crate) b_inherit_handle: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+
 pub(crate) struct ProcessEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) cnt_usage: u32,
@@ -157,6 +201,7 @@ pub(crate) struct ProcessEntry32W {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct ModuleEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) th32_module_id: u32,
@@ -172,6 +217,7 @@ pub(crate) struct ModuleEntry32W {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct SystemProcessInformation {
     pub(crate) next_entry_offset: u32,
     pub(crate) number_of_threads: u32,
@@ -200,6 +246,7 @@ pub(crate) struct SystemProcessInformation {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct UnicodeString {
     pub(crate) length: u16,
     pub(crate) maximum_length: u16,
@@ -208,6 +255,7 @@ pub(crate) struct UnicodeString {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct MemoryBasicInformation {
     pub(crate) base_address: *mut core::ffi::c_void,
     pub(crate) allocation_base: *mut core::ffi::c_void,
@@ -221,6 +269,7 @@ pub(crate) struct MemoryBasicInformation {
 }
 
 #[repr(C)]
+
 pub(crate) struct SystemInfo {
     pub(crate) anonymous: SystemInfoDummyUnion,
     pub(crate) dw_page_size: u32,
@@ -235,6 +284,7 @@ pub(crate) struct SystemInfo {
 }
 
 #[repr(C)]
+
 pub(crate) union SystemInfoDummyUnion {
     pub(crate) dw_oem_id: u32,
     pub(crate) anonymous: std::mem::ManuallyDrop<SystemInfoDummyStruct>,
@@ -242,6 +292,7 @@ pub(crate) union SystemInfoDummyUnion {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct SystemInfoDummyStruct {
     pub(crate) w_processor_architecture: u16,
     pub(crate) w_reserved: u16,
@@ -249,6 +300,7 @@ pub(crate) struct SystemInfoDummyStruct {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct RawSMBIOSData {
     pub(crate) used20_calling_method: u8,
     pub(crate) smbiosmajor_version: u8,
@@ -260,6 +312,7 @@ pub(crate) struct RawSMBIOSData {
 
 #[repr(C)]
 #[derive(Debug, Clone)]
+
 pub(crate) struct DmiHeader {
     pub(crate) ctype: u8,
     pub(crate) length: u8,

@@ -1,6 +1,4 @@
-use crate::{ffi::*, types::*};
-
-type Result<T> = std::result::Result<T, String>;
+use crate::{core::types::*, ffi::*};
 
 pub(crate) unsafe fn get_logical_cpu_count() -> u32 {
     let system_info: &mut SystemInfo = &mut core::mem::zeroed::<SystemInfo>();
@@ -10,8 +8,9 @@ pub(crate) unsafe fn get_logical_cpu_count() -> u32 {
     system_info.dw_number_of_processors
 }
 
-pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
+pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
     let signature: [u8; 4] = *b"RSMB";
+
     let signature: u32 = ((signature[0] as u32) << 24)
         | ((signature[1] as u32) << 16)
         | ((signature[2] as u32) << 8)
@@ -19,53 +18,49 @@ pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
 
     let mut return_length: u32 = GetSystemFirmwareTable(signature, 0, core::ptr::null_mut(), 0);
 
-    if return_length == 0 {
-        return Err(format!(
-            "GetSystemFirmwareTable failed with result: {return_length:X}"
-        ));
-    }
-
     let mut buffer: Vec<u8> = vec![0; return_length as usize];
 
     return_length = GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_length);
 
-    if return_length == 0 {
-        return Err(format!(
-            "GetSystemFirmwareTable failed with result: {return_length:X}"
-        ));
+    if return_length > return_length {
+        return Err("The function GetSystemFirmwareTable failed".to_string());
     }
 
-    let get_string_by_dmi: fn(*const DmiHeader, u8) -> Result<String> =
-        |dm_header: *const DmiHeader, mut value: u8| -> Result<String> {
+    let get_string_by_dmi: fn(*const DmiHeader, u8) -> crate::Result<String> =
+        |dm_header: *const DmiHeader, mut index: u8| -> crate::Result<String> {
             let get_c_str_len: fn(*const i8) -> usize = |cstr: *const i8| -> usize {
                 let mut len: usize = 0;
+
                 while cstr.add(len).read() != 0 {
                     len += 1;
                 }
+
                 len
             };
 
-            let base: *const i8 = dm_header.cast::<i8>();
+            let base_address: *const i8 = dm_header.cast::<i8>();
 
-            if value == 0 {
-                return Err("Invalid offset".to_string());
+            if index == 0 {
+                return Err("Invalid index".to_string());
             }
 
-            let mut base: *const i8 = base.add(dm_header.read().length as usize);
+            let mut base_address: *const i8 = base_address.add(dm_header.read().length as usize);
 
-            while value > 1 && base.read() != 0 {
-                base = base.add(get_c_str_len(base));
-                base = base.add(1);
-                value -= 1;
+            while index > 1 && base_address.read() != 0 {
+                base_address = base_address.add(get_c_str_len(base_address));
+
+                base_address = base_address.add(1);
+
+                index -= 1;
             }
 
-            if base.read() == 0 {
+            if base_address.read() == 0 {
                 return Err("Invalid base address".to_string());
             }
 
-            let len: usize = get_c_str_len(base);
+            let len: usize = get_c_str_len(base_address);
 
-            let bp_vec: &[u8] = std::slice::from_raw_parts(base.cast::<u8>(), len);
+            let bp_vec: &[u8] = std::slice::from_raw_parts(base_address.cast::<u8>(), len);
 
             Ok(String::from_utf8_lossy(bp_vec).to_string())
         };
@@ -147,13 +142,16 @@ pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
             let mut all_one: bool = true;
 
             let mut i: isize = 0;
+
             while i < 16 && (all_zero || all_one) {
                 if data.offset(i).read() != 0x00 {
                     all_zero = false;
                 }
+
                 if data.offset(i).read() != 0xFF {
                     all_one = false;
                 }
+
                 i += 1;
             }
 
@@ -163,8 +161,11 @@ pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
                 }
 
                 uuid[5] = data.offset(5).read();
+
                 uuid[4] = data.offset(4).read();
+
                 uuid[7] = data.offset(7).read();
+
                 uuid[6] = data.offset(6).read();
 
                 for j in 8..16 {
@@ -172,38 +173,48 @@ pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
                 }
 
                 let mut uuid_string: String = String::new();
+
                 for i in 0..16 {
                     uuid_string.push_str(format!("{:02X}", uuid[i]).as_str());
+
                     if (i + 1) % 4 == 0 && i != 15 {
                         uuid_string.push('-');
                     }
                 }
 
-                let mut guid: [u8; 16] = uuid.clone();
+                let mut guid: [u8; 16] = uuid;
 
                 for (i, j) in (0..4).zip((0..4).rev()) {
                     guid[i] = uuid[j];
                 }
 
                 guid[4] = uuid[5];
+
                 guid[5] = uuid[4];
+
                 guid[6] = uuid[7];
+
                 guid[7] = uuid[6];
 
                 dmi_info.system_uuid = (uuid, uuid_string);
 
                 let mut guid_string: String = String::new();
+
                 for i in 0..16 {
                     guid_string.push_str(format!("{:02X}", guid[i]).as_str());
+
                     if i == 3 {
                         guid_string.push('-');
                     }
+
                     if i % 2 == 1 && i < 10 && i > 4 {
                         guid_string.push('-');
                     }
                 }
+
                 dmi_info.system_guid = (guid, guid_string);
             }
+
             break;
         }
 
@@ -217,5 +228,6 @@ pub(crate) unsafe fn get_dmi_info() -> Result<DmiInfo> {
 
         data = next.add(2);
     }
+
     Ok(dmi_info)
 }

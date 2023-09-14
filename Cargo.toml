@@ -1,6 +1,6 @@
 [package]
 name = "vcheat"
-version = "0.2.0-beta"
+version = "0.2.0"
 authors = ["vSylva"]
 edition = "2021"
 description = "Simple Windows Process Cheating Library"
