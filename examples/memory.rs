@@ -37,26 +37,26 @@ fn main() {
 
     assert_eq!(num_bytes_written, size);
 
-    let module_data_usize: &[usize] = unsafe {
-        core::slice::from_raw_parts(
-            module_data.as_ptr().cast(),
-            module_data.len() / std::mem::size_of::<usize>(),
-        )
-    };
+    // let module_data_usize: &[usize] = unsafe {
+    //     core::slice::from_raw_parts(
+    //         module_data.as_ptr().cast(),
+    //         module_data.len() / std::mem::size_of::<usize>(),
+    //     )
+    // };
 
-    let num_bytes_written = memory::write_process_memory(
-        process_handle,
-        module_info.base_address.cast(),
-        &module_data_usize,
-    )
-    .unwrap();
+    // let num_bytes_written = memory::write_process_memory(
+    //     process_handle,
+    //     module_info.base_address.cast(),
+    //     &module_data_usize,
+    // )
+    // .unwrap();
 
-    assert_eq!(num_bytes_written, size);
+    // assert_eq!(num_bytes_written, size);
 
-    let module_data_ =
-        memory::read_process_memory(process_handle, module_info.base_address.cast(), size).unwrap();
+    // let module_data_ =
+    //     memory::read_process_memory(process_handle, module_info.base_address.cast(), size).unwrap();
 
-    assert_eq!(module_data, module_data_);
+    // assert_eq!(module_data, module_data_);
 
     vcheat::process::close_handle(process_handle).unwrap();
 }

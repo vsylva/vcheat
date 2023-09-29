@@ -3,7 +3,7 @@ use vcheat::{memory, module, process, system};
 fn main() {
     let module_path = r"C:\Windows\System32\Windows.UI.Xaml.dll";
 
-    let max_thread_count = system::get_logical_cpu_count();
+    let max_thread_count = system::get_system_info().number_of_processors;
 
     let return_on_first = false;
 
@@ -56,6 +56,10 @@ fn process_scan_single_threaded(
         })
         .unwrap();
 
+    let process_info1 = process::get_process_info(process_name).unwrap();
+
+    assert_eq!(process_info, process_info1);
+
     let module_info = module::get_modules_info(process_info.id)
         .unwrap()
         .into_iter()
@@ -63,6 +67,10 @@ fn process_scan_single_threaded(
             module_info.to_owned().name.to_lowercase() == module_name.to_lowercase()
         })
         .unwrap();
+
+    let module_info1 = module::get_module_info(process_info1.id, module_name).unwrap();
+
+    assert_eq!(module_info, module_info1);
 
     let process_handle = process::open_process(process_info.id).unwrap();
 

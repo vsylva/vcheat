@@ -1,19 +1,30 @@
-use crate::{core::types::*, ffi::*};
+use crate::{core, ffi};
 
 pub(crate) unsafe fn read_process_memory(
-    process_handle: *mut core::ffi::c_void,
-    address: *const core::ffi::c_void,
+    process_handle: *mut ::core::ffi::c_void,
+    address: *const ::core::ffi::c_void,
     size: usize,
 ) -> crate::Result<Vec<u8>> {
-    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
-        ..core::mem::zeroed()
-    };
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
 
-    if 0 == VirtualQueryEx(
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
+    if size == 0 {
+        return Err("Incorrect parameter size".to_string());
+    }
+
+    let mut memory_basic_info: ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+
+    if 0 == ffi::VirtualQueryEx(
         process_handle,
         address,
-        memory_basic_info,
-        core::mem::size_of::<MemoryBasicInformation>(),
+        &mut memory_basic_info,
+        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
         return Err("The function VirtualQueryEx failed".to_string());
     }
@@ -31,10 +42,10 @@ pub(crate) unsafe fn read_process_memory(
     let mut new_page_protect: u32 = 0x04;
 
     if !is_page_readable {
-        if 0 == VirtualProtectEx(
+        if 0 == ffi::VirtualProtectEx(
             process_handle,
             address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
+            ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             new_page_protect,
             &mut old_page_protect,
         ) {
@@ -46,7 +57,7 @@ pub(crate) unsafe fn read_process_memory(
 
     let mut number_of_bytes_read: usize = 0;
 
-    if 0 == ReadProcessMemory(
+    if 0 == ffi::ReadProcessMemory(
         process_handle,
         address,
         buffer.as_mut_ptr().cast(),
@@ -63,10 +74,10 @@ pub(crate) unsafe fn read_process_memory(
     }
 
     if !is_page_readable {
-        if 0 == VirtualProtectEx(
+        if 0 == ffi::VirtualProtectEx(
             process_handle,
             address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
+            ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             old_page_protect,
             &mut new_page_protect,
         ) {
@@ -77,40 +88,68 @@ pub(crate) unsafe fn read_process_memory(
     Ok(buffer)
 }
 
-pub(crate) unsafe fn write_process_memory<T>(
-    process_handle: *mut core::ffi::c_void,
-    address: *mut core::ffi::c_void,
-    data: &[T],
-) -> crate::Result<usize> {
-    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
-        ..core::mem::zeroed()
-    };
+pub(crate) unsafe fn read_process_memory_unchecked(
+    process_handle: *mut ::core::ffi::c_void,
+    address: *const ::core::ffi::c_void,
+    size: usize,
+) -> Vec<u8> {
+    let mut buffer: Vec<u8> = vec![0; size];
 
-    if 0 == VirtualQueryEx(
+    ffi::ReadProcessMemory(
         process_handle,
         address,
-        memory_basic_info,
-        core::mem::size_of::<MemoryBasicInformation>(),
+        buffer.as_mut_ptr().cast(),
+        size,
+        ::core::ptr::null_mut(),
+    );
+
+    buffer
+}
+
+pub(crate) unsafe fn write_process_memory<T>(
+    process_handle: *mut ::core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
+    data: &[T],
+) -> crate::Result<usize> {
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
+
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
+    if data.is_empty() {
+        return Err("Incorrect parameter data".to_string());
+    }
+
+    let mut memory_basic_info: ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+
+    if 0 == ffi::VirtualQueryEx(
+        process_handle,
+        address,
+        &mut memory_basic_info,
+        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
         return Err("The function VirtualQueryEx failed".to_string());
     }
 
-    let is_page_writeable: bool =
-        if memory_basic_info.state == 0x1000 && memory_basic_info.protect & (0x04 | 0x40) != 0 {
-            true
-        } else {
-            false
-        };
+    let mut is_page_writeable: bool = false;
+
+    if memory_basic_info.state == 0x1000 && memory_basic_info.protect & (0x04 | 0x40) != 0 {
+        is_page_writeable = true;
+    };
 
     let mut old_page_protect: u32 = 0;
 
     let mut new_page_protect: u32 = 0x04;
 
     if !is_page_writeable {
-        if 0 == VirtualProtectEx(
+        if 0 == ffi::VirtualProtectEx(
             process_handle,
             address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
+            ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             new_page_protect,
             &mut old_page_protect,
         ) {
@@ -120,9 +159,9 @@ pub(crate) unsafe fn write_process_memory<T>(
 
     let mut number_of_bytes_written: usize = 0;
 
-    let size = data.len() * core::mem::size_of::<T>();
+    let size: usize = data.len() * ::core::mem::size_of::<T>();
 
-    if 0 == WriteProcessMemory(
+    if 0 == ffi::WriteProcessMemory(
         process_handle,
         address,
         data.as_ptr().cast(),
@@ -141,10 +180,10 @@ pub(crate) unsafe fn write_process_memory<T>(
     }
 
     if !is_page_writeable {
-        if 0 == VirtualProtectEx(
+        if 0 == ffi::VirtualProtectEx(
             process_handle,
             address,
-            core::mem::size_of::<*mut core::ffi::c_void>(),
+            ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             old_page_protect,
             &mut new_page_protect,
         ) {
@@ -153,6 +192,20 @@ pub(crate) unsafe fn write_process_memory<T>(
     }
 
     Ok(number_of_bytes_written)
+}
+
+pub(crate) unsafe fn write_process_memory_unchecked<T>(
+    process_handle: *mut ::core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
+    data: &[T],
+) {
+    ffi::WriteProcessMemory(
+        process_handle,
+        address,
+        data.as_ptr().cast(),
+        data.len() * ::core::mem::size_of::<T>(),
+        ::core::ptr::null_mut(),
+    );
 }
 
 pub(crate) fn aob_scan_single_threaded(
@@ -212,25 +265,23 @@ pub(crate) fn aob_scan_single_threaded(
             continue;
         }
 
-        if {
-            let data: &[u8] = &data[i..];
+        let data: &[u8] = &data[i..];
 
-            let mut status: bool = true;
+        let mut found: bool = true;
 
-            for (i, sig) in signature.iter().enumerate() {
-                if !mask[i] {
-                    continue;
-                }
-
-                if data[i] != *sig {
-                    status = false;
-
-                    break;
-                }
+        for (i, sig) in signature.iter().enumerate() {
+            if !mask[i] {
+                continue;
             }
 
-            status
-        } {
+            if data[i] != *sig {
+                found = false;
+
+                break;
+            }
+        }
+
+        if found {
             offset_array.push(i - start_offset);
 
             if return_on_first {
@@ -263,7 +314,7 @@ pub(crate) fn aob_scan_multi_threaded(
         );
     }
 
-    let thread_count = thread_count as usize;
+    let thread_count: usize = thread_count as usize;
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
 
@@ -310,9 +361,9 @@ pub(crate) fn aob_scan_multi_threaded(
     let offset_array: std::sync::Arc<std::sync::Mutex<Vec<usize>>> =
         std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
 
-    let signature: &Vec<u8> = &signature;
+    let signature: &[u8] = signature.as_ref();
 
-    let mask: &Vec<bool> = &mask;
+    let mask: &[bool] = mask.as_ref();
 
     std::thread::scope(|scope| {
         for index in 0..thread_count {
@@ -443,6 +494,10 @@ pub(crate) unsafe fn standard_alloc(size: usize) -> crate::Result<*mut u8> {
 }
 
 pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> crate::Result<()> {
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
     let layout: std::alloc::Layout =
         match std::alloc::Layout::from_size_align(size, std::mem::size_of::<u8>()) {
             Ok(ok) => ok,
@@ -455,12 +510,12 @@ pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> crate::Resu
 }
 
 pub(crate) unsafe fn virtual_alloc(
-    address: *mut core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
     size: usize,
     mem_allocation: u32,
     page_protect: u32,
-) -> crate::Result<*mut core::ffi::c_void> {
-    let allocated_address = VirtualAlloc(address, size, mem_allocation, page_protect);
+) -> crate::Result<*mut ::core::ffi::c_void> {
+    let allocated_address = ffi::VirtualAlloc(address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
         return Err("The function VirtualAlloc failed".to_string());
@@ -470,15 +525,19 @@ pub(crate) unsafe fn virtual_alloc(
 }
 
 pub(crate) unsafe fn virtual_free(
-    address: *mut core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
 ) -> crate::Result<()> {
-    if mem_free == MemFree::Release {
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
+    if mem_free == core::mem_free::RELEASE {
         size = 0
     }
 
-    if 0 == VirtualFree(address, size, mem_free) {
+    if 0 == ffi::VirtualFree(address, size, mem_free) {
         return Err("The function VirtualFree failed".to_string());
     }
 
@@ -486,14 +545,18 @@ pub(crate) unsafe fn virtual_free(
 }
 
 pub(crate) unsafe fn virtual_alloc_ex(
-    process_handle: *mut core::ffi::c_void,
-    address: *mut core::ffi::c_void,
+    process_handle: *mut ::core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
     size: usize,
     mem_allocation: u32,
     page_protect: u32,
-) -> crate::Result<*mut core::ffi::c_void> {
+) -> crate::Result<*mut ::core::ffi::c_void> {
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
+
     let allocated_address =
-        VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
+        ffi::VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
         return Err("The function VirtualAllocEx failed".to_string());
@@ -503,16 +566,24 @@ pub(crate) unsafe fn virtual_alloc_ex(
 }
 
 pub(crate) unsafe fn virtual_free_ex(
-    process_handle: *mut core::ffi::c_void,
-    address: *mut core::ffi::c_void,
+    process_handle: *mut ::core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
 ) -> crate::Result<()> {
-    if mem_free == MemFree::Release {
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
+
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
+    if mem_free == core::mem_free::RELEASE {
         size = 0
     }
 
-    if 0 == VirtualFreeEx(process_handle, address, size, mem_free) {
+    if 0 == ffi::VirtualFreeEx(process_handle, address, size, mem_free) {
         return Err("The function VirtualFreeEx failed".to_string());
     }
 
@@ -520,23 +591,30 @@ pub(crate) unsafe fn virtual_free_ex(
 }
 
 pub(crate) unsafe fn virtual_query(
-    process_handle: *mut core::ffi::c_void,
-    address: *mut core::ffi::c_void,
-) -> crate::Result<MemoryInfo> {
-    let memory_basic_info: &mut MemoryBasicInformation = &mut MemoryBasicInformation {
-        ..core::mem::zeroed()
-    };
+    process_handle: *mut ::core::ffi::c_void,
+    address: *mut ::core::ffi::c_void,
+) -> crate::Result<core::MemoryInformation> {
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
 
-    if 0 == VirtualQueryEx(
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
+    }
+
+    let mut memory_basic_info: ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+
+    if 0 == ffi::VirtualQueryEx(
         process_handle,
         address,
-        memory_basic_info,
-        core::mem::size_of::<MemoryBasicInformation>(),
+        &mut memory_basic_info,
+        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
         return Err("The function VirtualQueryEx failed".to_string());
     }
 
-    let memory_info: MemoryInfo = MemoryInfo {
+    let memory_info: core::MemoryInformation = core::MemoryInformation {
         base_address: memory_basic_info.base_address,
         allocation_base_address: memory_basic_info.allocation_base,
         allocation_protect: memory_basic_info.allocation_protect,
@@ -552,25 +630,24 @@ pub(crate) unsafe fn virtual_query(
 }
 
 pub(crate) unsafe fn virtual_protect(
-    process_handle: *mut core::ffi::c_void,
-    address: *const core::ffi::c_void,
+    process_handle: *mut ::core::ffi::c_void,
+    address: *const ::core::ffi::c_void,
     new_page_protect: u32,
 ) -> crate::Result<u32> {
-    if 0 == VirtualQueryEx(
-        process_handle,
-        address,
-        &mut core::mem::zeroed::<MemoryBasicInformation>(),
-        core::mem::size_of::<MemoryBasicInformation>(),
-    ) {
-        return Err("The function VirtualQueryEx failed".to_string());
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
+
+    if address.is_null() {
+        return Err("Incorrect parameter address".to_string());
     }
 
     let mut old_page_protect: u32 = 0;
 
-    if 0 == VirtualProtectEx(
+    if 0 == ffi::VirtualProtectEx(
         process_handle,
         address,
-        core::mem::size_of::<*mut core::ffi::c_void>(),
+        ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
         new_page_protect,
         &mut old_page_protect,
     ) {

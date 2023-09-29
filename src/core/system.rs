@@ -1,55 +1,58 @@
-use crate::{core::types::*, ffi::*};
+use crate::{core, ffi};
 
-pub(crate) unsafe fn get_logical_cpu_count() -> u32 {
-    let system_info: &mut SystemInfo = &mut core::mem::zeroed::<SystemInfo>();
+pub(crate) unsafe fn get_system_info() -> core::SystemInfo {
+    let mut system_info: ffi::SystemInfo = ::core::mem::zeroed::<ffi::SystemInfo>();
 
-    GetSystemInfo(system_info);
+    ffi::GetSystemInfo(&mut system_info);
 
-    system_info.dw_number_of_processors
+    core::SystemInfo {
+        processor_architecture: system_info
+            .dummy_union
+            .dummy_struct
+            .w_processor_architecture,
+        reserved: system_info.dummy_union.dummy_struct.w_reserved,
+        page_size: system_info.dw_page_size,
+        minimum_application_address: system_info.lp_minimum_application_address,
+        maximum_application_address: system_info.lp_maximum_application_address,
+        active_processor_mask: system_info.dw_active_processor_mask,
+        number_of_processors: system_info.dw_number_of_processors,
+        processor_type: system_info.dw_processor_type,
+        allocation_granularity: system_info.dw_allocation_granularity,
+        processor_level: system_info.w_processor_level,
+        processor_revision: system_info.w_processor_revision,
+    }
 }
 
-pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
-    let signature: [u8; 4] = *b"RSMB";
+pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
+    let signature = u32::from_be_bytes(*b"RSMB");
 
-    let signature: u32 = ((signature[0] as u32) << 24)
-        | ((signature[1] as u32) << 16)
-        | ((signature[2] as u32) << 8)
-        | (signature[3] as u32);
-
-    let mut return_length: u32 = GetSystemFirmwareTable(signature, 0, core::ptr::null_mut(), 0);
+    let mut return_length: u32 =
+        ffi::GetSystemFirmwareTable(signature, 0, ::core::ptr::null_mut(), 0);
 
     let mut buffer: Vec<u8> = vec![0; return_length as usize];
 
-    return_length = GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_length);
+    return_length = ffi::GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_length);
 
     if return_length > return_length {
         return Err("The function GetSystemFirmwareTable failed".to_string());
     }
 
-    let get_string_by_dmi: fn(*const DmiHeader, u8) -> crate::Result<String> =
-        |dm_header: *const DmiHeader, mut index: u8| -> crate::Result<String> {
-            let get_c_str_len: fn(*const i8) -> usize = |cstr: *const i8| -> usize {
-                let mut len: usize = 0;
-
-                while cstr.add(len).read() != 0 {
-                    len += 1;
-                }
-
-                len
-            };
-
-            let base_address: *const i8 = dm_header.cast::<i8>();
-
+    let get_string_by_dmi: fn(*const ffi::DmiHeader, u8) -> crate::Result<String> =
+        |dm_header: *const ffi::DmiHeader, mut index: u8| -> crate::Result<String> {
             if index == 0 {
                 return Err("Invalid index".to_string());
             }
 
-            let mut base_address: *const i8 = base_address.add(dm_header.read().length as usize);
+            let mut base_address: *const i8 =
+                dm_header.cast::<i8>().add(dm_header.read().length as usize);
 
             while index > 1 && base_address.read() != 0 {
-                base_address = base_address.add(get_c_str_len(base_address));
+                let strlen = match std::ffi::CStr::from_ptr(base_address).to_str() {
+                    Ok(ok) => ok.len(),
+                    Err(err) => return Err(err.to_string()),
+                };
 
-                base_address = base_address.add(1);
+                base_address = base_address.add(strlen + 1);
 
                 index -= 1;
             }
@@ -58,14 +61,29 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
                 return Err("Invalid base address".to_string());
             }
 
-            let len: usize = get_c_str_len(base_address);
+            let strlen: usize = match std::ffi::CStr::from_ptr(base_address).to_str() {
+                Ok(ok) => ok.len(),
+                Err(err) => return Err(err.to_string()),
+            };
 
-            let bp_vec: &[u8] = std::slice::from_raw_parts(base_address.cast::<u8>(), len);
+            let sm_data: Vec<u8> =
+                std::slice::from_raw_parts(base_address.cast::<u8>(), strlen + 1).to_vec();
 
-            Ok(String::from_utf8_lossy(bp_vec).to_string())
+            let sm_cstring: std::ffi::CString = match std::ffi::CString::from_vec_with_nul(sm_data)
+            {
+                Ok(ok) => ok,
+                Err(err) => return Err(err.to_string()),
+            };
+
+            let result: String = match sm_cstring.to_str() {
+                Ok(ok) => ok.trim_end_matches('\0').to_string(),
+                Err(err) => return Err(err.to_string()),
+            };
+
+            Ok(result)
         };
 
-    let smb: RawSMBIOSData = RawSMBIOSData {
+    let smb: ffi::RawSMBIOSData = ffi::RawSMBIOSData {
         used20_calling_method: buffer[0],
         smbiosmajor_version: buffer[1],
         smbiosminor_version: buffer[2],
@@ -74,68 +92,72 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
         smbiostable_data: buffer[8..].to_vec(),
     };
 
-    let mut dmi_info: DmiInfo = DmiInfo::default();
+    let mut dmi_info: core::DmiInformation = core::DmiInformation::default();
 
     let mut uuid: [u8; 16] = [0; 16];
 
-    let mut data: *const u8 = smb.smbiostable_data.as_ptr();
+    let mut sm_data: *const u8 = smb.smbiostable_data.as_ptr();
 
     let mut once_flag: bool = false;
 
-    while data < smb.smbiostable_data.as_ptr().add(smb.length as usize) {
-        let h: *const DmiHeader = data.cast();
+    while sm_data < smb.smbiostable_data.as_ptr().add(smb.length as usize) {
+        let dmi_header: *const ffi::DmiHeader = sm_data.cast();
 
-        if h.read().length < 4 {
+        if dmi_header.read().length < 4 {
             break;
         }
 
-        if h.read().ctype == 0 && once_flag == false {
-            if let Ok(bios_vendor) = get_string_by_dmi(h, data.offset(0x4).read()) {
+        if dmi_header.read().type_ == 0 && once_flag == false {
+            if let Ok(bios_vendor) = get_string_by_dmi(dmi_header, sm_data.offset(0x4).read()) {
                 dmi_info.bios_vendor = bios_vendor;
             }
 
-            if let Ok(bios_version) = get_string_by_dmi(h, data.offset(0x5).read()) {
+            if let Ok(bios_version) = get_string_by_dmi(dmi_header, sm_data.offset(0x5).read()) {
                 dmi_info.bios_version = bios_version;
             }
 
-            if let Ok(bios_release_date) = get_string_by_dmi(h, data.offset(0x8).read()) {
+            if let Ok(bios_release_date) = get_string_by_dmi(dmi_header, sm_data.offset(0x8).read())
+            {
                 dmi_info.bios_release_date = bios_release_date;
             }
 
-            if data.offset(0x16).read() != 0xFF && data.offset(0x17).read() != 0xFF {
-                dmi_info.bios_embedded_controller_firmware_version =
-                    format!("{}.{}", data.offset(0x16).read(), data.offset(0x17).read());
+            if sm_data.offset(0x16).read() != 0xFF && sm_data.offset(0x17).read() != 0xFF {
+                dmi_info.bios_embedded_controller_firmware_version = format!(
+                    "{}.{}",
+                    sm_data.offset(0x16).read(),
+                    sm_data.offset(0x17).read()
+                );
             }
 
             once_flag = true;
         }
 
-        if h.read().ctype == 0x01 && h.read().length >= 0x19 {
-            if let Ok(manufacturer) = get_string_by_dmi(h, data.offset(0x4).read()) {
+        if dmi_header.read().type_ == 0x01 && dmi_header.read().length >= 0x19 {
+            if let Ok(manufacturer) = get_string_by_dmi(dmi_header, sm_data.offset(0x4).read()) {
                 dmi_info.system_manufacturer = manufacturer;
             }
 
-            if let Ok(product) = get_string_by_dmi(h, data.offset(0x5).read()) {
+            if let Ok(product) = get_string_by_dmi(dmi_header, sm_data.offset(0x5).read()) {
                 dmi_info.system_product = product;
             }
 
-            if let Ok(version) = get_string_by_dmi(h, data.offset(0x6).read()) {
+            if let Ok(version) = get_string_by_dmi(dmi_header, sm_data.offset(0x6).read()) {
                 dmi_info.system_version = version;
             }
 
-            if let Ok(serial_number) = get_string_by_dmi(h, data.offset(0x7).read()) {
+            if let Ok(serial_number) = get_string_by_dmi(dmi_header, sm_data.offset(0x7).read()) {
                 dmi_info.system_serial_number = serial_number;
             }
 
-            if let Ok(sku_number) = get_string_by_dmi(h, data.offset(0x19).read()) {
+            if let Ok(sku_number) = get_string_by_dmi(dmi_header, sm_data.offset(0x19).read()) {
                 dmi_info.system_sku_number = sku_number;
             }
 
-            if let Ok(family) = get_string_by_dmi(h, data.offset(0x1A).read()) {
+            if let Ok(family) = get_string_by_dmi(dmi_header, sm_data.offset(0x1A).read()) {
                 dmi_info.system_family = family;
             }
 
-            data = data.add(0x8);
+            sm_data = sm_data.add(0x8);
 
             let mut all_zero: bool = true;
 
@@ -144,11 +166,11 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
             let mut i: isize = 0;
 
             while i < 16 && (all_zero || all_one) {
-                if data.offset(i).read() != 0x00 {
+                if sm_data.offset(i).read() != 0x00 {
                     all_zero = false;
                 }
 
-                if data.offset(i).read() != 0xFF {
+                if sm_data.offset(i).read() != 0xFF {
                     all_one = false;
                 }
 
@@ -157,19 +179,19 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
 
             if !all_zero && !all_one {
                 for i in 0..4 {
-                    uuid[i] = data.add(i).read();
+                    uuid[i] = sm_data.add(i).read();
                 }
 
-                uuid[5] = data.offset(5).read();
+                uuid[5] = sm_data.offset(5).read();
 
-                uuid[4] = data.offset(4).read();
+                uuid[4] = sm_data.offset(4).read();
 
-                uuid[7] = data.offset(7).read();
+                uuid[7] = sm_data.offset(7).read();
 
-                uuid[6] = data.offset(6).read();
+                uuid[6] = sm_data.offset(6).read();
 
                 for j in 8..16 {
-                    uuid[j] = data.add(j).read();
+                    uuid[j] = sm_data.add(j).read();
                 }
 
                 let mut uuid_string: String = String::new();
@@ -184,9 +206,13 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
 
                 let mut guid: [u8; 16] = uuid;
 
-                for (i, j) in (0..4).zip((0..4).rev()) {
-                    guid[i] = uuid[j];
-                }
+                guid[0] = uuid[3];
+
+                guid[1] = uuid[2];
+
+                guid[2] = uuid[1];
+
+                guid[3] = uuid[0];
 
                 guid[4] = uuid[5];
 
@@ -218,7 +244,7 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
             break;
         }
 
-        let mut next: *const u8 = data.add(h.read().length as usize);
+        let mut next: *const u8 = sm_data.add(dmi_header.read().length as usize);
 
         while next < smb.smbiostable_data.as_ptr().add(smb.length as usize)
             && (next.offset(0).read() != 0 || next.offset(1).read() != 0)
@@ -226,7 +252,7 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<DmiInfo> {
             next = next.add(1);
         }
 
-        data = next.add(2);
+        sm_data = next.add(2);
     }
 
     Ok(dmi_info)

@@ -1,7 +1,7 @@
-use crate::{core::types::*, ffi::*};
+use crate::{core, ffi};
 
-pub(crate) unsafe fn open_process(process_id: u32) -> crate::Result<*mut core::ffi::c_void> {
-    let process_handle: *mut core::ffi::c_void = OpenProcess(0x1F0FFF, 0, process_id);
+pub(crate) unsafe fn open_process(process_id: u32) -> crate::Result<*mut ::core::ffi::c_void> {
+    let process_handle: *mut ::core::ffi::c_void = ffi::OpenProcess(0x1F0FFF, 0, process_id);
 
     if process_handle.is_null() {
         return Err("The function OpenProcess failed".to_string());
@@ -10,12 +10,12 @@ pub(crate) unsafe fn open_process(process_id: u32) -> crate::Result<*mut core::f
     Ok(process_handle)
 }
 
-pub(crate) unsafe fn close_handle(handle: *mut core::ffi::c_void) -> crate::Result<()> {
+pub(crate) unsafe fn close_handle(handle: *mut ::core::ffi::c_void) -> crate::Result<()> {
     if handle.is_null() {
-        return Ok(());
+        return Err("Incorrect parameter handle".to_string());
     }
 
-    let result = CloseHandle(handle);
+    let result = ffi::CloseHandle(handle);
 
     if result == 0 {
         return Err("The function CloseHandle failed".to_string());
@@ -25,11 +25,15 @@ pub(crate) unsafe fn close_handle(handle: *mut core::ffi::c_void) -> crate::Resu
 }
 
 pub(crate) unsafe fn is_wow64_process(
-    process_handle: *mut core::ffi::c_void,
+    process_handle: *mut ::core::ffi::c_void,
 ) -> crate::Result<bool> {
+    if process_handle.is_null() {
+        return Err("Incorrect parameter process_handle".to_string());
+    }
+
     let mut is_wow64: i32 = 0;
 
-    let result: i32 = IsWow64Process(process_handle, &mut is_wow64);
+    let result: i32 = ffi::IsWow64Process(process_handle, &mut is_wow64);
 
     if result == 0 {
         return Err("The function IsWow64Process failed".to_string());
@@ -38,18 +42,21 @@ pub(crate) unsafe fn is_wow64_process(
     Ok(is_wow64 != 0)
 }
 
-pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<ProcessInfo>> {
-    let snapshot_handle: *mut core::ffi::c_void = CreateToolhelp32Snapshot(0x2, 0x0);
+pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInformation>> {
+    let snapshot_handle: *mut ::core::ffi::c_void = ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
-    if snapshot_handle.is_null() {
-        return Err("The function CreateToolhelp32Snapshot failed".to_string());
+    if snapshot_handle as i32 == -1 {
+        return Err(format!(
+            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
+            snapshot_handle
+        ));
     }
 
-    let process_entry: &mut ProcessEntry32W = &mut core::mem::zeroed::<ProcessEntry32W>();
+    let mut process_entry: ffi::ProcessEntry32W = ::core::mem::zeroed::<ffi::ProcessEntry32W>();
 
-    process_entry.dw_size = core::mem::size_of::<ProcessEntry32W>() as u32;
+    process_entry.dw_size = ::core::mem::size_of::<ffi::ProcessEntry32W>() as u32;
 
-    let result: i32 = Process32FirstW(snapshot_handle, process_entry);
+    let result: i32 = ffi::Process32FirstW(snapshot_handle, &mut process_entry);
 
     if result == 0 {
         close_handle(snapshot_handle)?;
@@ -57,39 +64,139 @@ pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<ProcessInfo>> {
         return Err("The function Process32FirstW failed".to_string());
     }
 
-    let mut process_entry_array: Vec<ProcessEntry32W> = Vec::<ProcessEntry32W>::new();
+    let mut process_entry_array: Vec<ffi::ProcessEntry32W> = Vec::<ffi::ProcessEntry32W>::new();
 
     process_entry_array.push(process_entry.to_owned());
 
-    while Process32NextW(snapshot_handle, process_entry) != 0 {
+    while ffi::Process32NextW(snapshot_handle, &mut process_entry) != 0 {
         process_entry_array.push(process_entry.to_owned());
     }
 
     close_handle(snapshot_handle)?;
 
-    let mut process_info_array: Vec<ProcessInfo> = Vec::<ProcessInfo>::new();
+    let mut process_info_array: Vec<core::ProcessInformation> =
+        Vec::<core::ProcessInformation>::new();
 
-    for p in process_entry_array {
-        process_info_array.push(ProcessInfo {
-            id: p.th32_process_id,
-            thread_count: p.cnt_threads,
-            parent_process_id: p.th32_parent_process_id,
-            base_priority_class: p.pc_pri_class_base,
-            name: String::from_utf16_lossy(&p.sz_exe_file).replace("\0", ""),
+    for process_entry in process_entry_array {
+        process_info_array.push(core::ProcessInformation {
+            id: process_entry.th32_process_id,
+            thread_count: process_entry.cnt_threads,
+            parent_process_id: process_entry.th32_parent_process_id,
+            base_priority_class: process_entry.pc_pri_class_base,
+            name: {
+                let result: std::ffi::OsString =
+                    std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+
+                match result.to_str() {
+                    Some(some) => some.trim_end_matches('\0').to_string(),
+
+                    None => {
+                        close_handle(snapshot_handle)?;
+
+                        return Err("None".to_string());
+                    }
+                }
+            },
         });
     }
 
     Ok(process_info_array)
 }
 
-pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<SystemProcessInfo>> {
+pub(crate) unsafe fn get_process_info(
+    process_name: &str,
+) -> crate::Result<core::ProcessInformation> {
+    if process_name.is_empty() {
+        return Err("process_name can not be empty".to_string());
+    }
+
+    let process_name: String = process_name.to_lowercase();
+
+    let snapshot_handle: *mut ::core::ffi::c_void = ffi::CreateToolhelp32Snapshot(0x2, 0x0);
+
+    if snapshot_handle as i32 == -1 {
+        return Err(format!(
+            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
+            snapshot_handle
+        ));
+    }
+
+    let mut process_entry: ffi::ProcessEntry32W = ::core::mem::zeroed::<ffi::ProcessEntry32W>();
+
+    process_entry.dw_size = ::core::mem::size_of::<ffi::ProcessEntry32W>() as u32;
+
+    let result: i32 = ffi::Process32FirstW(snapshot_handle, &mut process_entry);
+
+    if result == 0 {
+        close_handle(snapshot_handle)?;
+
+        return Err("The function Process32FirstW failed".to_string());
+    }
+
+    let process_entry_name: String = {
+        let result: std::ffi::OsString =
+            std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+
+        match result.to_str() {
+            Some(some) => some.trim_end_matches('\0').to_string(),
+
+            None => {
+                close_handle(snapshot_handle)?;
+
+                return Err("None".to_string());
+            }
+        }
+    };
+
+    if process_entry_name.to_lowercase() == process_name {
+        close_handle(snapshot_handle)?;
+
+        return Ok(core::ProcessInformation {
+            id: process_entry.th32_process_id,
+            thread_count: process_entry.cnt_threads,
+            parent_process_id: process_entry.th32_parent_process_id,
+            base_priority_class: process_entry.pc_pri_class_base,
+            name: process_entry_name,
+        });
+    }
+
+    while ffi::Process32NextW(snapshot_handle, &mut process_entry) != 0 {
+        let process_entry_name: String = {
+            let result: std::ffi::OsString =
+                std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+
+            match result.to_str() {
+                Some(some) => some.trim_end_matches('\0').to_string(),
+                None => return Err("None".to_string()),
+            }
+        };
+
+        if process_entry_name.to_lowercase() == process_name {
+            close_handle(snapshot_handle)?;
+
+            return Ok(core::ProcessInformation {
+                id: process_entry.th32_process_id,
+                thread_count: process_entry.cnt_threads,
+                parent_process_id: process_entry.th32_parent_process_id,
+                base_priority_class: process_entry.pc_pri_class_base,
+                name: process_entry_name,
+            });
+        }
+    }
+
+    close_handle(snapshot_handle)?;
+
+    Err("The function Process32W failed".to_string())
+}
+
+pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemProcessInformation>> {
     let mut return_length: u32 = 0;
 
-    NtQuerySystemInformation(5, core::ptr::null_mut(), 0, &mut return_length);
+    let _: i32 = ffi::NtQuerySystemInformation(5, ::core::ptr::null_mut(), 0, &mut return_length);
 
     let mut buffer: Vec<u8> = vec![0; return_length as usize * 2];
 
-    let result: i32 = NtQuerySystemInformation(
+    let result: i32 = ffi::NtQuerySystemInformation(
         5,
         buffer.as_mut_ptr().cast(),
         return_length * 2,
@@ -102,13 +209,13 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<SystemProcessI
         ));
     }
 
-    let mut process_info_array: Vec<SystemProcessInformation> =
-        Vec::<SystemProcessInformation>::new();
+    let mut process_info_array: Vec<ffi::SystemProcessInformation> =
+        Vec::<ffi::SystemProcessInformation>::new();
 
     let mut current_offset: isize = 0;
 
-    let mut process_info: SystemProcessInformation =
-        core::ptr::read::<SystemProcessInformation>(buffer.as_ptr().cast());
+    let mut process_info: ffi::SystemProcessInformation =
+        ::core::ptr::read::<ffi::SystemProcessInformation>(buffer.as_ptr().cast());
 
     while process_info.next_entry_offset != 0 {
         if process_info.unique_process_id != 0 {
@@ -121,21 +228,31 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<SystemProcessI
             break;
         }
 
-        process_info = core::ptr::read::<SystemProcessInformation>(
+        process_info = ::core::ptr::read::<ffi::SystemProcessInformation>(
             buffer.as_ptr().offset(current_offset).cast(),
         );
     }
 
-    let mut nt_process_info_array: Vec<SystemProcessInfo> = Vec::<SystemProcessInfo>::new();
+    let mut nt_process_info_array: Vec<core::SystemProcessInformation> =
+        Vec::<core::SystemProcessInformation>::new();
 
     for p in process_info_array {
-        nt_process_info_array.push(SystemProcessInfo {
+        nt_process_info_array.push(core::SystemProcessInformation {
             thread_count: p.number_of_threads,
-            name: String::from_utf16_lossy(std::slice::from_raw_parts(
-                p.image_name.buffer,
-                (p.image_name.length) as usize / 2,
-            ))
-            .replace("\0", ""),
+            name: {
+                let name_data: &[u16] = std::slice::from_raw_parts(
+                    p.image_name.buffer,
+                    (p.image_name.length) as usize / 2,
+                );
+
+                let result: std::ffi::OsString =
+                    std::os::windows::prelude::OsStringExt::from_wide(&name_data);
+
+                match result.to_str() {
+                    Some(some) => some.trim_end_matches('\0').to_string(),
+                    None => return Err("None".to_string()),
+                }
+            },
             base_priority_class: p.base_priority,
             id: p.unique_process_id,
             handle_count: p.handle_count,
@@ -156,66 +273,55 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<SystemProcessI
 }
 
 pub(crate) unsafe fn alloc_console() -> crate::Result<()> {
-    if AllocConsole() == 0 {
+    if ffi::AllocConsole() == 0 {
         return Err("The function AllocConsole failed".to_string());
     }
 
     Ok(())
 }
 
+pub(crate) unsafe fn alloc_console_unchecked() -> i32 {
+    ffi::AllocConsole()
+}
+
 pub(crate) unsafe fn free_console() -> crate::Result<()> {
-    if FreeConsole() == 0 {
+    if ffi::FreeConsole() == 0 {
         return Err("The function FreeConsole failed".to_string());
     }
 
     Ok(())
 }
 
+pub(crate) unsafe fn free_console_unchecked() -> i32 {
+    ffi::FreeConsole()
+}
+
 pub(crate) unsafe fn set_console_mode(
     standard_handle: u32,
     console_mode: u32,
 ) -> crate::Result<()> {
-    let standard_handle: *mut core::ffi::c_void = GetStdHandle(standard_handle);
+    let standard_handle: *mut ::core::ffi::c_void = ffi::GetStdHandle(standard_handle);
 
-    if standard_handle == -1isize as *mut core::ffi::c_void {
+    if standard_handle as isize == -1 {
         return Err("The function GetStdHandle failed".to_string());
     }
 
     let mut current_console_mode: u32 = 0;
 
-    if GetConsoleMode(standard_handle, &mut current_console_mode) == 0 {
+    if 0 == ffi::GetConsoleMode(standard_handle, &mut current_console_mode) {
         return Err("The function GetConsoleMode failed".to_string());
     }
 
-    if 0 == SetConsoleMode(standard_handle, current_console_mode | console_mode) {
+    if 0 == ffi::SetConsoleMode(standard_handle, current_console_mode | console_mode) {
         return Err("The function SetConsoleMode failed".to_string());
     }
 
     Ok(())
 }
 
-// fn get_last_error_message() -> crate::Result<String> {
-//     unsafe {
-//         let language_id = ((0 as u32) << 10) | (0x01 as u32);
-
-//         let mut buffer: *mut u16 = core::ptr::null_mut();
-//         let buffer_size = FormatMessageW(
-//             0x00000100 | 0x00001000 | 0x00000200,
-//             core::ptr::null(),
-//             GetLastError(),
-//             language_id,
-//             &mut buffer as *mut _ as *mut u16,
-//             0,
-//             core::ptr::null_mut(),
-//         );
-
-//         if buffer_size <= 0 {
-//             return Err("FormatMessageW failed".to_string());
-//         }
-
-//         Ok(String::from_utf16_lossy(core::slice::from_raw_parts(
-//             buffer,
-//             buffer_size as usize,
-//         )))
-//     }
-// }
+pub(crate) unsafe fn set_console_colors() -> crate::Result<()> {
+    set_console_mode(
+        crate::standard_handle::OUTPUT_HANDLE,
+        crate::console_mode::ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+    )
+}
