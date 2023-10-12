@@ -1,7 +1,7 @@
 use vcheat::{memory, process, *};
 
 fn main() {
-    let process_handle = process::open_process(std::process::id()).unwrap();
+    let process_handle = process::open_process(::std::process::id()).unwrap();
 
     let size = 1024;
 

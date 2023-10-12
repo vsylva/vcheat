@@ -231,10 +231,7 @@ pub(crate) fn aob_scan_single_threaded(
 
             signature.push(0);
         } else {
-            let number: u8 = match u8::from_str_radix(pair, 16) {
-                Ok(ok) => ok,
-                Err(err) => return Err(err.to_string()),
-            };
+            let number: u8 = u8::from_str_radix(pair, 16).map_err(|err| err.to_string())?;
 
             mask.push(true);
 
@@ -326,10 +323,7 @@ pub(crate) fn aob_scan_multi_threaded(
 
             signature.push(0);
         } else {
-            let number: u8 = match u8::from_str_radix(pair, 16) {
-                Ok(ok) => ok,
-                Err(err) => return Err(err.to_string()),
-            };
+            let number: u8 = u8::from_str_radix(pair, 16).map_err(|err| err.to_string())?;
 
             mask.push(true);
 
@@ -349,23 +343,23 @@ pub(crate) fn aob_scan_multi_threaded(
         start_offset = 0;
     }
 
-    let running_thread_count: std::sync::Arc<std::sync::atomic::AtomicUsize> =
-        std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let running_thread_count: ::std::sync::Arc<::std::sync::atomic::AtomicUsize> =
+        ::std::sync::Arc::new(::std::sync::atomic::AtomicUsize::new(0));
 
-    let found: std::sync::Arc<std::sync::atomic::AtomicBool> =
-        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let found: ::std::sync::Arc<::std::sync::atomic::AtomicBool> =
+        ::std::sync::Arc::new(::std::sync::atomic::AtomicBool::new(false));
 
-    let finished: std::sync::Arc<std::sync::atomic::AtomicBool> =
-        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let finished: ::std::sync::Arc<::std::sync::atomic::AtomicBool> =
+        ::std::sync::Arc::new(::std::sync::atomic::AtomicBool::new(false));
 
-    let offset_array: std::sync::Arc<std::sync::Mutex<Vec<usize>>> =
-        std::sync::Arc::new(std::sync::Mutex::new(Vec::<usize>::new()));
+    let offset_array: ::std::sync::Arc<::std::sync::Mutex<Vec<usize>>> =
+        ::std::sync::Arc::new(::std::sync::Mutex::new(Vec::<usize>::new()));
 
     let signature: &[u8] = signature.as_ref();
 
     let mask: &[bool] = mask.as_ref();
 
-    std::thread::scope(|scope| {
+    ::std::thread::scope(|scope| {
         for index in 0..thread_count {
             let data_size: usize = data.len();
 
@@ -390,16 +384,17 @@ pub(crate) fn aob_scan_multi_threaded(
                     0
                 };
 
-            let running_thread_count: std::sync::Arc<std::sync::atomic::AtomicUsize> =
+            let running_thread_count: ::std::sync::Arc<::std::sync::atomic::AtomicUsize> =
                 running_thread_count.clone();
 
-            let finished: std::sync::Arc<std::sync::atomic::AtomicBool> = finished.clone();
+            let finished: ::std::sync::Arc<::std::sync::atomic::AtomicBool> = finished.clone();
 
-            let found: std::sync::Arc<std::sync::atomic::AtomicBool> = found.clone();
+            let found: ::std::sync::Arc<::std::sync::atomic::AtomicBool> = found.clone();
 
-            running_thread_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            running_thread_count.fetch_add(1, ::std::sync::atomic::Ordering::SeqCst);
 
-            let offset_array: std::sync::Arc<std::sync::Mutex<Vec<usize>>> = offset_array.clone();
+            let offset_array: ::std::sync::Arc<::std::sync::Mutex<Vec<usize>>> =
+                offset_array.clone();
 
             scope.spawn(move || {
                 let data: &[u8] = &data[range_start..range_end];
@@ -413,7 +408,7 @@ pub(crate) fn aob_scan_multi_threaded(
                 let mut found_in_thread: bool = false;
 
                 for i in 0..length {
-                    if finished.load(std::sync::atomic::Ordering::Relaxed) {
+                    if finished.load(::std::sync::atomic::Ordering::Relaxed) {
                         break;
                     }
 
@@ -449,7 +444,7 @@ pub(crate) fn aob_scan_multi_threaded(
                         }
 
                         if return_on_first {
-                            finished.store(true, std::sync::atomic::Ordering::Relaxed);
+                            finished.store(true, ::std::sync::atomic::Ordering::Relaxed);
 
                             break;
                         }
@@ -457,37 +452,34 @@ pub(crate) fn aob_scan_multi_threaded(
                 }
 
                 if found_in_thread {
-                    found.store(true, std::sync::atomic::Ordering::SeqCst);
+                    found.store(true, ::std::sync::atomic::Ordering::SeqCst);
                 }
 
-                running_thread_count.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                running_thread_count.fetch_sub(1, ::std::sync::atomic::Ordering::SeqCst);
             });
         }
     });
 
-    while running_thread_count.load(std::sync::atomic::Ordering::SeqCst) != 0 {
-        std::thread::sleep(std::time::Duration::from_millis(20));
+    let millis = ::std::time::Duration::from_millis(20);
+
+    while running_thread_count.load(::std::sync::atomic::Ordering::SeqCst) != 0 {
+        ::std::thread::sleep(millis);
     }
 
-    found.load(std::sync::atomic::Ordering::SeqCst);
+    let result = offset_array.lock().map_err(|err| err.to_string())?.to_vec();
 
-    match offset_array.to_owned().lock() {
-        Ok(ok) => Ok(ok.to_vec()),
-        Err(err) => Err(err.to_string()),
-    }
+    Ok(result)
 }
 
 pub(crate) unsafe fn standard_alloc(size: usize) -> crate::Result<*mut u8> {
-    let layout: std::alloc::Layout =
-        match std::alloc::Layout::from_size_align(size, std::mem::size_of::<u8>()) {
-            Ok(ok) => ok,
-            Err(err) => return Err(err.to_string()),
-        };
+    let layout: ::std::alloc::Layout =
+        ::std::alloc::Layout::from_size_align(size, ::std::mem::size_of::<u8>())
+            .map_err(|err| err.to_string())?;
 
-    let allocated_address: *mut u8 = std::alloc::alloc(layout);
+    let allocated_address: *mut u8 = ::std::alloc::alloc(layout);
 
     if allocated_address.is_null() {
-        return Err("The function std::alloc::alloc failed".to_string());
+        return Err("The function ::std::alloc::alloc failed".to_string());
     }
 
     Ok(allocated_address)
@@ -498,13 +490,11 @@ pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> crate::Resu
         return Err("Incorrect parameter address".to_string());
     }
 
-    let layout: std::alloc::Layout =
-        match std::alloc::Layout::from_size_align(size, std::mem::size_of::<u8>()) {
-            Ok(ok) => ok,
-            Err(err) => return Err(err.to_string()),
-        };
+    let layout: ::std::alloc::Layout =
+        ::std::alloc::Layout::from_size_align(size, ::std::mem::size_of::<u8>())
+            .map_err(|err| err.to_string())?;
 
-    std::alloc::dealloc(address, layout);
+    ::std::alloc::dealloc(address, layout);
 
     Ok(())
 }

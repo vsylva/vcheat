@@ -47,10 +47,10 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
                 dm_header.cast::<i8>().add(dm_header.read().length as usize);
 
             while index > 1 && base_address.read() != 0 {
-                let strlen = match std::ffi::CStr::from_ptr(base_address).to_str() {
-                    Ok(ok) => ok.len(),
-                    Err(err) => return Err(err.to_string()),
-                };
+                let strlen = ::std::ffi::CStr::from_ptr(base_address)
+                    .to_str()
+                    .map_err(|err| err.to_string())?
+                    .len();
 
                 base_address = base_address.add(strlen + 1);
 
@@ -61,19 +61,16 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
                 return Err("Invalid base address".to_string());
             }
 
-            let strlen: usize = match std::ffi::CStr::from_ptr(base_address).to_str() {
-                Ok(ok) => ok.len(),
-                Err(err) => return Err(err.to_string()),
-            };
+            let strlen: usize = ::std::ffi::CStr::from_ptr(base_address)
+                .to_str()
+                .map_err(|err| err.to_string())?
+                .len();
 
             let sm_data: Vec<u8> =
-                std::slice::from_raw_parts(base_address.cast::<u8>(), strlen + 1).to_vec();
+                ::std::slice::from_raw_parts(base_address.cast::<u8>(), strlen + 1).to_vec();
 
-            let sm_cstring: std::ffi::CString = match std::ffi::CString::from_vec_with_nul(sm_data)
-            {
-                Ok(ok) => ok,
-                Err(err) => return Err(err.to_string()),
-            };
+            let sm_cstring: ::std::ffi::CString =
+                ::std::ffi::CString::from_vec_with_nul(sm_data).map_err(|e| e.to_string())?;
 
             let result: String = match sm_cstring.to_str() {
                 Ok(ok) => ok.trim_end_matches('\0').to_string(),

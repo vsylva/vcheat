@@ -124,7 +124,7 @@ fn process_scan_multi_threaded(
 }
 
 fn file_scan_single_threaded(path: &str, return_on_first: bool) -> Vec<usize> {
-    let file_data = std::fs::read(std::path::Path::new(path)).unwrap();
+    let file_data = ::std::fs::read(::std::path::Path::new(path)).unwrap();
 
     let pattern = "5C ? 6D ??";
 
@@ -135,7 +135,7 @@ fn file_scan_single_threaded(path: &str, return_on_first: bool) -> Vec<usize> {
 }
 
 fn file_scan_multi_threaded(path: &str, return_on_first: bool, thread_count: u32) -> Vec<usize> {
-    let file_data = std::fs::read(std::path::Path::new(path)).unwrap();
+    let file_data = ::std::fs::read(::std::path::Path::new(path)).unwrap();
 
     let pattern = "5C ? 6D ??";
 

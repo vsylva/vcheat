@@ -84,8 +84,8 @@ pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInfo
             parent_process_id: process_entry.th32_parent_process_id,
             base_priority_class: process_entry.pc_pri_class_base,
             name: {
-                let result: std::ffi::OsString =
-                    std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+                let result: ::std::ffi::OsString =
+                    ::std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
@@ -134,8 +134,8 @@ pub(crate) unsafe fn get_process_info(
     }
 
     let process_entry_name: String = {
-        let result: std::ffi::OsString =
-            std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+        let result: ::std::ffi::OsString =
+            ::std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
@@ -162,8 +162,8 @@ pub(crate) unsafe fn get_process_info(
 
     while ffi::Process32NextW(snapshot_handle, &mut process_entry) != 0 {
         let process_entry_name: String = {
-            let result: std::ffi::OsString =
-                std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
+            let result: ::std::ffi::OsString =
+                ::std::os::windows::prelude::OsStringExt::from_wide(&process_entry.sz_exe_file);
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
@@ -240,13 +240,13 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemPr
         nt_process_info_array.push(core::SystemProcessInformation {
             thread_count: p.number_of_threads,
             name: {
-                let name_data: &[u16] = std::slice::from_raw_parts(
+                let name_data: &[u16] = ::std::slice::from_raw_parts(
                     p.image_name.buffer,
                     (p.image_name.length) as usize / 2,
                 );
 
-                let result: std::ffi::OsString =
-                    std::os::windows::prelude::OsStringExt::from_wide(&name_data);
+                let result: ::std::ffi::OsString =
+                    ::std::os::windows::prelude::OsStringExt::from_wide(&name_data);
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),

@@ -1,5 +1,5 @@
 # 设置 Rust 版本为 2021 Edition
-# edition = "2021"
+edition = "2021"
 
 # 允许使用实验性特性
 unstable_features = true

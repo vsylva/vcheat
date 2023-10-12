@@ -17,7 +17,7 @@ fn main() {
 
     module::inject_dll(process_handle, dll_name).unwrap();
 
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    ::std::thread::sleep(::std::time::Duration::from_secs(5));
 
     let module_info = module::get_modules_info(process_info.id)
         .unwrap()

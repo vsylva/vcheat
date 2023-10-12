@@ -42,8 +42,8 @@ pub(crate) unsafe fn get_modules_info(
             size: module_entry.mod_base_size,
             handle: module_entry.h_module,
             name: {
-                let result: std::ffi::OsString =
-                    std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
+                let result: ::std::ffi::OsString =
+                    ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
@@ -51,8 +51,8 @@ pub(crate) unsafe fn get_modules_info(
                 }
             },
             path: {
-                let result: std::ffi::OsString =
-                    std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_exe_path);
+                let result: ::std::ffi::OsString =
+                    ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_exe_path);
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
@@ -96,8 +96,8 @@ pub(crate) unsafe fn get_module_info(
     }
 
     let module_entry_name: String = {
-        let result: std::ffi::OsString =
-            std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
+        let result: ::std::ffi::OsString =
+            ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
@@ -115,8 +115,8 @@ pub(crate) unsafe fn get_module_info(
             handle: module_entry.h_module,
             name: module_entry_name,
             path: {
-                let result: std::ffi::OsString =
-                    std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_exe_path);
+                let result: ::std::ffi::OsString =
+                    ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_exe_path);
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
@@ -128,8 +128,8 @@ pub(crate) unsafe fn get_module_info(
 
     while 0 != ffi::Module32NextW(snapshot_handle, &mut module_entry) {
         let module_entry_name: String = {
-            let result: std::ffi::OsString =
-                std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
+            let result: ::std::ffi::OsString =
+                ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
@@ -147,8 +147,8 @@ pub(crate) unsafe fn get_module_info(
                 handle: module_entry.h_module,
                 name: module_entry_name,
                 path: {
-                    let result: std::ffi::OsString =
-                        std::os::windows::prelude::OsStringExt::from_wide(
+                    let result: ::std::ffi::OsString =
+                        ::std::os::windows::prelude::OsStringExt::from_wide(
                             &module_entry.sz_exe_path,
                         );
 
@@ -175,11 +175,9 @@ pub(crate) unsafe fn load_library(dll_path: &str) -> crate::Result<*mut ::core::
         return Err("The length of dll_path cannot be greater than 260".to_string());
     }
 
-    let dll_path_buf: std::path::PathBuf = match std::path::Path::new(dll_path).canonicalize() {
-        Ok(ok) => ok,
-
-        Err(err) => return Err(err.to_string()),
-    };
+    let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
+        .canonicalize()
+        .map_err(|err| err.to_string())?;
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
@@ -215,8 +213,8 @@ pub(crate) unsafe fn load_system_library(
     }
 
     let mut dll_path: String = {
-        let result: std::ffi::OsString =
-            std::os::windows::prelude::OsStringExt::from_wide(&sys_dir_path_buffer);
+        let result: ::std::ffi::OsString =
+            ::std::os::windows::prelude::OsStringExt::from_wide(&sys_dir_path_buffer);
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
@@ -284,11 +282,9 @@ pub(crate) unsafe fn inject_dll(
         return Err("The length of dll_path cannot be greater than 260".to_string());
     }
 
-    let dll_path_buf: std::path::PathBuf = match std::path::Path::new(dll_path).canonicalize() {
-        Ok(ok) => ok,
-
-        Err(err) => return Err(err.to_string()),
-    };
+    let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
+        .canonicalize()
+        .map_err(|err| err.to_string())?;
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
