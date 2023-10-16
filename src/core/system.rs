@@ -1,3 +1,35 @@
+macro_rules! location {
+    () => {
+        format!("[{}:{}]", file!(), line!())
+    };
+
+    ($val:literal) => {
+        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
+    };
+
+    ($($val:expr),*) => {
+        {
+            let mut text =  format!("[{}:{}]", file!(), line!());
+
+            text.push('\t');
+
+            text.push('\"');
+
+            $(
+                text += &format!("{} = {:?}", stringify!($val), $val);
+
+                text.push('\t');
+            )*
+
+            text = text.trim_end().to_string();
+
+            text.push('\"');
+
+            text
+        }
+    };
+}
+
 use crate::{core, ffi};
 
 pub(crate) unsafe fn get_system_info() -> core::SystemInfo {
@@ -23,7 +55,7 @@ pub(crate) unsafe fn get_system_info() -> core::SystemInfo {
     }
 }
 
-pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
+pub(crate) unsafe fn get_dmi_info() -> Result<core::DmiInformation, String> {
     let signature = u32::from_be_bytes(*b"RSMB");
 
     let mut return_length: u32 =
@@ -34,13 +66,13 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
     return_length = ffi::GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_length);
 
     if return_length > return_length {
-        return Err("The function GetSystemFirmwareTable failed".to_string());
+        return Err(location!());
     }
 
-    let get_string_by_dmi: fn(*const ffi::DmiHeader, u8) -> crate::Result<String> =
-        |dm_header: *const ffi::DmiHeader, mut index: u8| -> crate::Result<String> {
+    let get_string_by_dmi: fn(*const ffi::DmiHeader, u8) -> Result<String, String> =
+        |dm_header: *const ffi::DmiHeader, mut index: u8| -> Result<String, String> {
             if index == 0 {
-                return Err("Invalid index".to_string());
+                return Err(location!());
             }
 
             let mut base_address: *const i8 =
@@ -58,7 +90,7 @@ pub(crate) unsafe fn get_dmi_info() -> crate::Result<core::DmiInformation> {
             }
 
             if base_address.read() == 0 {
-                return Err("Invalid base address".to_string());
+                return Err(location!());
             }
 
             let strlen: usize = ::std::ffi::CStr::from_ptr(base_address)

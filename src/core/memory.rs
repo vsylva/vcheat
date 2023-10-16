@@ -1,20 +1,52 @@
+macro_rules! location {
+    () => {
+        format!("[{}:{}]", file!(), line!())
+    };
+
+    ($val:literal) => {
+        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
+    };
+
+    ($($val:expr),*) => {
+        {
+            let mut text =  format!("[{}:{}]", file!(), line!());
+
+            text.push('\t');
+
+            text.push('\"');
+
+            $(
+                text += &format!("{} = {:?}", stringify!($val), $val);
+
+                text.push('\t');
+            )*
+
+            text = text.trim_end().to_string();
+
+            text.push('\"');
+
+            text
+        }
+    };
+}
+
 use crate::{core, ffi};
 
 pub(crate) unsafe fn read_process_memory(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
     size: usize,
-) -> crate::Result<Vec<u8>> {
+) -> Result<Vec<u8>, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     if size == 0 {
-        return Err("Incorrect parameter size".to_string());
+        return Err(location!());
     }
 
     let mut memory_basic_info: ffi::MemoryBasicInformation =
@@ -26,7 +58,7 @@ pub(crate) unsafe fn read_process_memory(
         &mut memory_basic_info,
         ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
-        return Err("The function VirtualQueryEx failed".to_string());
+        return Err(location!());
     }
 
     let mut is_page_readable: bool = false;
@@ -49,7 +81,7 @@ pub(crate) unsafe fn read_process_memory(
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err("The function VirtualProtectEx failed".to_string());
+            return Err(location!());
         }
     }
 
@@ -64,13 +96,11 @@ pub(crate) unsafe fn read_process_memory(
         size,
         &mut number_of_bytes_read,
     ) {
-        return Err("The function ReadProcessMemory failed".to_string());
+        return Err(location!());
     }
 
     if number_of_bytes_read != size {
-        return Err(format!(
-            "The size of the data read by the function ReadProcessMemory: {number_of_bytes_read:X} is not equal to the size of the parameter: {size:X}"
-        ));
+        return Err(location!(size, number_of_bytes_read));
     }
 
     if !is_page_readable {
@@ -81,7 +111,7 @@ pub(crate) unsafe fn read_process_memory(
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err("The function VirtualProtectEx failed".to_string());
+            return Err(location!());
         }
     }
 
@@ -110,17 +140,17 @@ pub(crate) unsafe fn write_process_memory<T>(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
     data: &[T],
-) -> crate::Result<usize> {
+) -> Result<usize, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     if data.is_empty() {
-        return Err("Incorrect parameter data".to_string());
+        return Err(location!());
     }
 
     let mut memory_basic_info: ffi::MemoryBasicInformation =
@@ -132,7 +162,7 @@ pub(crate) unsafe fn write_process_memory<T>(
         &mut memory_basic_info,
         ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
-        return Err("The function VirtualQueryEx failed".to_string());
+        return Err(location!());
     }
 
     let mut is_page_writeable: bool = false;
@@ -153,7 +183,7 @@ pub(crate) unsafe fn write_process_memory<T>(
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err("The function VirtualProtectEx failed".to_string());
+            return Err(location!());
         }
     }
 
@@ -168,15 +198,11 @@ pub(crate) unsafe fn write_process_memory<T>(
         size,
         &mut number_of_bytes_written,
     ) {
-        return Err("The function WriteProcessMemory failed".to_string());
+        return Err(location!());
     }
 
     if number_of_bytes_written != size {
-        return Err(format!(
-            "The size of the data written by the function WriteProcessMemory: {:X} is not equal to the size of the parameter: {:X}",
-            number_of_bytes_written,
-            data.len()
-        ));
+        return Err(location!(data.len(), number_of_bytes_written));
     }
 
     if !is_page_writeable {
@@ -187,7 +213,7 @@ pub(crate) unsafe fn write_process_memory<T>(
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err("The function VirtualProtectEx failed".to_string());
+            return Err(location!());
         }
     }
 
@@ -212,13 +238,13 @@ pub(crate) fn aob_scan_single_threaded(
     pattern: &str,
     data: &[u8],
     return_on_first: bool,
-) -> crate::Result<Vec<usize>> {
+) -> Result<Vec<usize>, String> {
     if pattern.is_empty() {
-        return Err("The pattern cannot be empty".to_string());
+        return Err(location!());
     }
 
     if data.is_empty() {
-        return Err("The data cannot be empty".to_string());
+        return Err(location!());
     }
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
@@ -295,13 +321,13 @@ pub(crate) fn aob_scan_multi_threaded(
     data: &[u8],
     return_on_first: bool,
     thread_count: u32,
-) -> crate::Result<Vec<usize>> {
+) -> Result<Vec<usize>, String> {
     if pattern.is_empty() {
-        return Err("The pattern cannot be empty".to_string());
+        return Err(location!());
     }
 
     if data.is_empty() {
-        return Err("Data cannot be empty".to_string());
+        return Err(location!());
     }
 
     if thread_count < 2 {
@@ -471,7 +497,7 @@ pub(crate) fn aob_scan_multi_threaded(
     Ok(result)
 }
 
-pub(crate) unsafe fn standard_alloc(size: usize) -> crate::Result<*mut u8> {
+pub(crate) unsafe fn standard_alloc(size: usize) -> Result<*mut u8, String> {
     let layout: ::std::alloc::Layout =
         ::std::alloc::Layout::from_size_align(size, ::std::mem::size_of::<u8>())
             .map_err(|err| err.to_string())?;
@@ -479,15 +505,15 @@ pub(crate) unsafe fn standard_alloc(size: usize) -> crate::Result<*mut u8> {
     let allocated_address: *mut u8 = ::std::alloc::alloc(layout);
 
     if allocated_address.is_null() {
-        return Err("The function ::std::alloc::alloc failed".to_string());
+        return Err(location!());
     }
 
     Ok(allocated_address)
 }
 
-pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> crate::Result<()> {
+pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> Result<(), String> {
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     let layout: ::std::alloc::Layout =
@@ -504,11 +530,11 @@ pub(crate) unsafe fn virtual_alloc(
     size: usize,
     mem_allocation: u32,
     page_protect: u32,
-) -> crate::Result<*mut ::core::ffi::c_void> {
+) -> Result<*mut ::core::ffi::c_void, String> {
     let allocated_address = ffi::VirtualAlloc(address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err("The function VirtualAlloc failed".to_string());
+        return Err(location!());
     }
 
     Ok(allocated_address)
@@ -518,9 +544,9 @@ pub(crate) unsafe fn virtual_free(
     address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
-) -> crate::Result<()> {
+) -> Result<(), String> {
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     if mem_free == core::mem_free::RELEASE {
@@ -528,7 +554,7 @@ pub(crate) unsafe fn virtual_free(
     }
 
     if 0 == ffi::VirtualFree(address, size, mem_free) {
-        return Err("The function VirtualFree failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
@@ -540,16 +566,16 @@ pub(crate) unsafe fn virtual_alloc_ex(
     size: usize,
     mem_allocation: u32,
     page_protect: u32,
-) -> crate::Result<*mut ::core::ffi::c_void> {
+) -> Result<*mut ::core::ffi::c_void, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     let allocated_address =
         ffi::VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err("The function VirtualAllocEx failed".to_string());
+        return Err(location!());
     }
 
     Ok(allocated_address)
@@ -560,13 +586,13 @@ pub(crate) unsafe fn virtual_free_ex(
     address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
-) -> crate::Result<()> {
+) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     if mem_free == core::mem_free::RELEASE {
@@ -574,7 +600,7 @@ pub(crate) unsafe fn virtual_free_ex(
     }
 
     if 0 == ffi::VirtualFreeEx(process_handle, address, size, mem_free) {
-        return Err("The function VirtualFreeEx failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
@@ -583,13 +609,13 @@ pub(crate) unsafe fn virtual_free_ex(
 pub(crate) unsafe fn virtual_query(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
-) -> crate::Result<core::MemoryInformation> {
+) -> Result<core::MemoryInformation, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     let mut memory_basic_info: ffi::MemoryBasicInformation =
@@ -601,7 +627,7 @@ pub(crate) unsafe fn virtual_query(
         &mut memory_basic_info,
         ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
     ) {
-        return Err("The function VirtualQueryEx failed".to_string());
+        return Err(location!());
     }
 
     let memory_info: core::MemoryInformation = core::MemoryInformation {
@@ -623,13 +649,13 @@ pub(crate) unsafe fn virtual_protect(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
     new_page_protect: u32,
-) -> crate::Result<u32> {
+) -> Result<u32, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if address.is_null() {
-        return Err("Incorrect parameter address".to_string());
+        return Err(location!());
     }
 
     let mut old_page_protect: u32 = 0;
@@ -641,7 +667,7 @@ pub(crate) unsafe fn virtual_protect(
         new_page_protect,
         &mut old_page_protect,
     ) {
-        return Err("The function VirtualProtectEx failed".to_string());
+        return Err(location!());
     }
 
     Ok(old_page_protect)

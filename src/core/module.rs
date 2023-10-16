@@ -1,16 +1,45 @@
+macro_rules! location {
+    () => {
+        format!("[{}:{}]", file!(), line!())
+    };
+
+    ($val:literal) => {
+        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
+    };
+
+    ($($val:expr),*) => {
+        {
+            let mut text =  format!("[{}:{}]", file!(), line!());
+
+            text.push('\t');
+
+            text.push('\"');
+
+            $(
+                text += &format!("{} = {:?}", stringify!($val), $val);
+
+                text.push('\t');
+            )*
+
+            text = text.trim_end().to_string();
+
+            text.push('\"');
+
+            text
+        }
+    };
+}
+
 use crate::{core, ffi};
 
 pub(crate) unsafe fn get_modules_info(
     process_id: u32,
-) -> crate::Result<Vec<core::ModuleInformation>> {
+) -> Result<Vec<core::ModuleInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void =
         ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as isize == -1 {
-        return Err(format!(
-            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
-            snapshot_handle
-        ));
+        return Err(location!(snapshot_handle));
     }
 
     let mut module_entry: ffi::ModuleEntry32W = ::core::mem::zeroed::<ffi::ModuleEntry32W>();
@@ -20,7 +49,7 @@ pub(crate) unsafe fn get_modules_info(
     if 0 == ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
         crate::core::process::close_handle(snapshot_handle)?;
 
-        return Err("The function Module32FirstW failed".to_string());
+        return Err(location!());
     }
 
     let mut module_entry_array: Vec<ffi::ModuleEntry32W> = Vec::<ffi::ModuleEntry32W>::new();
@@ -47,7 +76,7 @@ pub(crate) unsafe fn get_modules_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err("None".to_string()),
+                    None => return Err(location!()),
                 }
             },
             path: {
@@ -56,7 +85,7 @@ pub(crate) unsafe fn get_modules_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err("None".to_string()),
+                    None => return Err(location!()),
                 }
             },
         })
@@ -68,9 +97,9 @@ pub(crate) unsafe fn get_modules_info(
 pub(crate) unsafe fn get_module_info(
     process_id: u32,
     module_name: &str,
-) -> crate::Result<core::ModuleInformation> {
+) -> Result<core::ModuleInformation, String> {
     if module_name.is_empty() {
-        return Err("module_name can not be empty".to_string());
+        return Err(location!());
     }
 
     let module_name: String = module_name.to_lowercase();
@@ -79,10 +108,7 @@ pub(crate) unsafe fn get_module_info(
         ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as i32 == -1 {
-        return Err(format!(
-            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
-            snapshot_handle
-        ));
+        return Err(location!(snapshot_handle));
     }
 
     let mut module_entry: ffi::ModuleEntry32W = ::core::mem::zeroed::<ffi::ModuleEntry32W>();
@@ -92,7 +118,7 @@ pub(crate) unsafe fn get_module_info(
     if 0 == ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
         crate::core::process::close_handle(snapshot_handle)?;
 
-        return Err("The function Module32FirstW failed".to_string());
+        return Err(location!());
     }
 
     let module_entry_name: String = {
@@ -101,7 +127,7 @@ pub(crate) unsafe fn get_module_info(
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err("None".to_string()),
+            None => return Err(location!()),
         }
     };
 
@@ -120,7 +146,7 @@ pub(crate) unsafe fn get_module_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err("None".to_string()),
+                    None => return Err(location!()),
                 }
             },
         });
@@ -133,7 +159,7 @@ pub(crate) unsafe fn get_module_info(
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
-                None => return Err("None".to_string()),
+                None => return Err(location!()),
             }
         };
 
@@ -154,7 +180,7 @@ pub(crate) unsafe fn get_module_info(
 
                     match result.to_str() {
                         Some(some) => some.trim_end_matches('\0').to_string(),
-                        None => return Err("None".to_string()),
+                        None => return Err(location!()),
                     }
                 },
             });
@@ -163,16 +189,16 @@ pub(crate) unsafe fn get_module_info(
 
     crate::core::process::close_handle(snapshot_handle)?;
 
-    Err("The function Module32W failed".to_string())
+    Err(location!())
 }
 
-pub(crate) unsafe fn load_library(dll_path: &str) -> crate::Result<*mut ::core::ffi::c_void> {
+pub(crate) unsafe fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_path.is_empty() {
-        return Err("dll_path cannot be empty".to_string());
+        return Err(location!());
     }
 
     if dll_path.len() > 260 {
-        return Err("The length of dll_path cannot be greater than 260".to_string());
+        return Err(location!());
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -181,7 +207,7 @@ pub(crate) unsafe fn load_library(dll_path: &str) -> crate::Result<*mut ::core::
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err("None".to_string()),
+        None => return Err(location!()),
     };
 
     dll_path.push('\0');
@@ -191,7 +217,7 @@ pub(crate) unsafe fn load_library(dll_path: &str) -> crate::Result<*mut ::core::
     let module_handle: *mut ::core::ffi::c_void = ffi::LoadLibraryW(dll_path_buffer.as_ptr());
 
     if module_handle.is_null() {
-        return Err("The function LoadLibraryW failed".to_string());
+        return Err(location!());
     }
 
     Ok(module_handle)
@@ -199,9 +225,9 @@ pub(crate) unsafe fn load_library(dll_path: &str) -> crate::Result<*mut ::core::
 
 pub(crate) unsafe fn load_system_library(
     dll_name: &str,
-) -> crate::Result<*mut ::core::ffi::c_void> {
+) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_name.is_empty() {
-        return Err("dll_name cannot be empty".to_string());
+        return Err(location!());
     }
 
     let mut sys_dir_path_buffer: Vec<u16> = Vec::new();
@@ -209,7 +235,7 @@ pub(crate) unsafe fn load_system_library(
     sys_dir_path_buffer.resize(260, 0);
 
     if 0 == ffi::GetSystemDirectoryW(sys_dir_path_buffer.as_mut_ptr(), 260) {
-        return Err("The function GetSystemDirectoryW failed".to_string());
+        return Err(location!());
     }
 
     let mut dll_path: String = {
@@ -218,7 +244,7 @@ pub(crate) unsafe fn load_system_library(
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err("None".to_string()),
+            None => return Err(location!()),
         }
     };
 
@@ -229,13 +255,13 @@ pub(crate) unsafe fn load_system_library(
     load_library(&dll_path)
 }
 
-pub(crate) unsafe fn free_library(module_handle: *mut ::core::ffi::c_void) -> crate::Result<()> {
+pub(crate) unsafe fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if module_handle.is_null() {
-        return Err("Incorrect parameter module_handle".to_string());
+        return Err(location!());
     }
 
     if 0 == ffi::FreeLibrary(module_handle) {
-        return Err("The function FreeLibrary failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
@@ -244,13 +270,13 @@ pub(crate) unsafe fn free_library(module_handle: *mut ::core::ffi::c_void) -> cr
 pub(crate) unsafe fn get_proc_address(
     module_handle: *mut ::core::ffi::c_void,
     proc_name: &str,
-) -> crate::Result<*mut ::core::ffi::c_void> {
+) -> Result<*mut ::core::ffi::c_void, String> {
     if module_handle.is_null() {
-        return Err("Incorrect parameter module_handle".to_string());
+        return Err(location!());
     }
 
     if proc_name.is_empty() {
-        return Err("proc_name cannot be empty".to_string());
+        return Err(location!());
     }
 
     let mut proc_name_bytes: Vec<u8> = proc_name.as_bytes().to_vec();
@@ -260,7 +286,7 @@ pub(crate) unsafe fn get_proc_address(
     let proc_address = ffi::GetProcAddress(module_handle, proc_name_bytes.as_mut_ptr().cast());
 
     if proc_address.is_null() {
-        return Err("The function GetProcAddress failed".to_string());
+        return Err(location!());
     }
 
     Ok(proc_address)
@@ -269,17 +295,17 @@ pub(crate) unsafe fn get_proc_address(
 pub(crate) unsafe fn inject_dll(
     process_handle: *mut ::core::ffi::c_void,
     dll_path: &str,
-) -> crate::Result<()> {
+) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if dll_path.is_empty() {
-        return Err("dll_path cannot be empty".to_string());
+        return Err(location!());
     }
 
     if dll_path.len() > 260 {
-        return Err("The length of dll_path cannot be greater than 260".to_string());
+        return Err(location!());
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -288,7 +314,7 @@ pub(crate) unsafe fn inject_dll(
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err("None".to_string()),
+        None => return Err(location!()),
     };
 
     dll_path.push('\0');
@@ -334,7 +360,7 @@ pub(crate) unsafe fn inject_dll(
             core::mem_free::RELEASE,
         )?;
 
-        return Err("The function CreateRemoteThread failed".to_string());
+        return Err(location!());
     }
 
     let _result = ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);
@@ -370,13 +396,13 @@ pub(crate) unsafe fn inject_dll(
 pub(crate) unsafe fn eject_dll(
     process_handle: *mut ::core::ffi::c_void,
     module_handle: *mut ::core::ffi::c_void,
-) -> crate::Result<()> {
+) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     if module_handle.is_null() {
-        return Err("Incorrect parameter module_handle".to_string());
+        return Err(location!());
     }
 
     let kernel32_handle = crate::core::module::load_system_library("kernel32.dll")?;
@@ -394,7 +420,7 @@ pub(crate) unsafe fn eject_dll(
     );
 
     if remote_thread_handle.is_null() {
-        return Err("The function CreateRemoteThread failed".to_string());
+        return Err(location!());
     }
 
     let _result = ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);

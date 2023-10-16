@@ -1,34 +1,70 @@
+macro_rules! location {
+    () => {
+        format!("[{}:{}]", file!(), line!())
+    };
+
+    ($val:literal) => {
+        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
+    };
+
+    ($($val:expr),*) => {
+        {
+            let mut text =  format!("[{}:{}]", file!(), line!());
+
+            text.push('\t');
+
+            text.push('\"');
+
+            $(
+                text += &format!("{} = {:?}", stringify!($val), $val);
+
+                text.push('\t');
+            )*
+
+            text = text.trim_end().to_string();
+
+            text.push('\"');
+
+            text
+        }
+    };
+}
+
 use crate::{core, ffi};
 
-pub(crate) unsafe fn open_process(process_id: u32) -> crate::Result<*mut ::core::ffi::c_void> {
+pub(crate) unsafe fn open_process(process_id: u32) -> Result<*mut ::core::ffi::c_void, String> {
     let process_handle: *mut ::core::ffi::c_void = ffi::OpenProcess(0x1F0FFF, 0, process_id);
 
     if process_handle.is_null() {
-        return Err("The function OpenProcess failed".to_string());
+        return Err(location!());
     }
 
     Ok(process_handle)
 }
 
-pub(crate) unsafe fn close_handle(handle: *mut ::core::ffi::c_void) -> crate::Result<()> {
+pub(crate) unsafe fn close_handle(handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if handle.is_null() {
-        return Err("Incorrect parameter handle".to_string());
+        return Err(location!());
     }
 
     let result = ffi::CloseHandle(handle);
 
     if result == 0 {
-        return Err("The function CloseHandle failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
 }
 
+pub(crate) unsafe fn close_handle_unchecked(handle: *mut ::core::ffi::c_void) -> i32 {
+    ffi::CloseHandle(handle)
+}
+
 pub(crate) unsafe fn is_wow64_process(
     process_handle: *mut ::core::ffi::c_void,
-) -> crate::Result<bool> {
+) -> Result<bool, String> {
     if process_handle.is_null() {
-        return Err("Incorrect parameter process_handle".to_string());
+        return Err(location!());
     }
 
     let mut is_wow64: i32 = 0;
@@ -36,20 +72,17 @@ pub(crate) unsafe fn is_wow64_process(
     let result: i32 = ffi::IsWow64Process(process_handle, &mut is_wow64);
 
     if result == 0 {
-        return Err("The function IsWow64Process failed".to_string());
+        return Err(location!());
     }
 
     Ok(is_wow64 != 0)
 }
 
-pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInformation>> {
+pub(crate) unsafe fn get_processes_info() -> Result<Vec<core::ProcessInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void = ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as i32 == -1 {
-        return Err(format!(
-            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
-            snapshot_handle
-        ));
+        return Err(location!(snapshot_handle));
     }
 
     let mut process_entry: ffi::ProcessEntry32W = ::core::mem::zeroed::<ffi::ProcessEntry32W>();
@@ -61,7 +94,7 @@ pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInfo
     if result == 0 {
         close_handle(snapshot_handle)?;
 
-        return Err("The function Process32FirstW failed".to_string());
+        return Err(location!());
     }
 
     let mut process_entry_array: Vec<ffi::ProcessEntry32W> = Vec::<ffi::ProcessEntry32W>::new();
@@ -93,7 +126,7 @@ pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInfo
                     None => {
                         close_handle(snapshot_handle)?;
 
-                        return Err("None".to_string());
+                        return Err(location!());
                     }
                 }
             },
@@ -105,9 +138,9 @@ pub(crate) unsafe fn get_processes_info() -> crate::Result<Vec<core::ProcessInfo
 
 pub(crate) unsafe fn get_process_info(
     process_name: &str,
-) -> crate::Result<core::ProcessInformation> {
+) -> Result<core::ProcessInformation, String> {
     if process_name.is_empty() {
-        return Err("process_name can not be empty".to_string());
+        return Err(location!());
     }
 
     let process_name: String = process_name.to_lowercase();
@@ -115,10 +148,7 @@ pub(crate) unsafe fn get_process_info(
     let snapshot_handle: *mut ::core::ffi::c_void = ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as i32 == -1 {
-        return Err(format!(
-            "The function CreateToolhelp32Snapshot failed with a return value of {:p}",
-            snapshot_handle
-        ));
+        return Err(location!(snapshot_handle));
     }
 
     let mut process_entry: ffi::ProcessEntry32W = ::core::mem::zeroed::<ffi::ProcessEntry32W>();
@@ -130,7 +160,7 @@ pub(crate) unsafe fn get_process_info(
     if result == 0 {
         close_handle(snapshot_handle)?;
 
-        return Err("The function Process32FirstW failed".to_string());
+        return Err(location!());
     }
 
     let process_entry_name: String = {
@@ -143,7 +173,7 @@ pub(crate) unsafe fn get_process_info(
             None => {
                 close_handle(snapshot_handle)?;
 
-                return Err("None".to_string());
+                return Err(location!());
             }
         }
     };
@@ -167,7 +197,7 @@ pub(crate) unsafe fn get_process_info(
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
-                None => return Err("None".to_string()),
+                None => return Err(location!()),
             }
         };
 
@@ -186,10 +216,11 @@ pub(crate) unsafe fn get_process_info(
 
     close_handle(snapshot_handle)?;
 
-    Err("The function Process32W failed".to_string())
+    Err(location!())
 }
 
-pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemProcessInformation>> {
+pub(crate) unsafe fn nt_get_processes_info() -> Result<Vec<core::SystemProcessInformation>, String>
+{
     let mut return_length: u32 = 0;
 
     let _: i32 = ffi::NtQuerySystemInformation(5, ::core::ptr::null_mut(), 0, &mut return_length);
@@ -204,9 +235,7 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemPr
     );
 
     if result != 0 {
-        return Err(format!(
-            "The function NtQuerySystemInformation failed with a return value of: {result:X}"
-        ));
+        return Err(location!(result));
     }
 
     let mut process_info_array: Vec<ffi::SystemProcessInformation> =
@@ -250,7 +279,7 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemPr
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err("None".to_string()),
+                    None => return Err(location!()),
                 }
             },
             base_priority_class: p.base_priority,
@@ -272,9 +301,9 @@ pub(crate) unsafe fn nt_get_processes_info() -> crate::Result<Vec<core::SystemPr
     Ok(nt_process_info_array)
 }
 
-pub(crate) unsafe fn alloc_console() -> crate::Result<()> {
+pub(crate) unsafe fn alloc_console() -> Result<(), String> {
     if ffi::AllocConsole() == 0 {
-        return Err("The function AllocConsole failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
@@ -284,9 +313,9 @@ pub(crate) unsafe fn alloc_console_unchecked() -> i32 {
     ffi::AllocConsole()
 }
 
-pub(crate) unsafe fn free_console() -> crate::Result<()> {
+pub(crate) unsafe fn free_console() -> Result<(), String> {
     if ffi::FreeConsole() == 0 {
-        return Err("The function FreeConsole failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
@@ -299,29 +328,29 @@ pub(crate) unsafe fn free_console_unchecked() -> i32 {
 pub(crate) unsafe fn set_console_mode(
     standard_handle: u32,
     console_mode: u32,
-) -> crate::Result<()> {
+) -> Result<(), String> {
     let standard_handle: *mut ::core::ffi::c_void = ffi::GetStdHandle(standard_handle);
 
     if standard_handle as isize == -1 {
-        return Err("The function GetStdHandle failed".to_string());
+        return Err(location!());
     }
 
     let mut current_console_mode: u32 = 0;
 
     if 0 == ffi::GetConsoleMode(standard_handle, &mut current_console_mode) {
-        return Err("The function GetConsoleMode failed".to_string());
+        return Err(location!());
     }
 
     if 0 == ffi::SetConsoleMode(standard_handle, current_console_mode | console_mode) {
-        return Err("The function SetConsoleMode failed".to_string());
+        return Err(location!());
     }
 
     Ok(())
 }
 
-pub(crate) unsafe fn set_console_colors() -> crate::Result<()> {
+pub(crate) unsafe fn set_console_colors() -> Result<(), String> {
     set_console_mode(
-        crate::standard_handle::OUTPUT_HANDLE,
-        crate::console_mode::ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+        crate::core::standard_handle::OUTPUT_HANDLE,
+        crate::core::console_mode::ENABLE_VIRTUAL_TERMINAL_PROCESSING,
     )
 }
