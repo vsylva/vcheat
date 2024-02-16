@@ -38,7 +38,7 @@ fn main() {
     assert_eq!(num_bytes_written, size);
 
     let module_data_usize: &[usize] = unsafe {
-        core::slice::from_raw_parts(
+        ::core::slice::from_raw_parts(
             module_data.as_ptr().cast(),
             module_data.len() / ::std::mem::size_of::<usize>(),
         )

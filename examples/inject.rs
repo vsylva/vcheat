@@ -3,7 +3,7 @@ use vcheat::{module, process};
 fn main() {
     let dll_name = r"test.dll";
 
-    let process_name = "explorer.exe";
+    let process_name = "test.exe";
 
     let process_info = process::get_processes_info()
         .unwrap()

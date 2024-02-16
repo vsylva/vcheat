@@ -1,64 +1,33 @@
-macro_rules! location {
-    () => {
-        format!("[{}:{}]", file!(), line!())
-    };
+use unsafe_fn_body::unsafe_fn_body;
 
-    ($val:literal) => {
-        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
-    };
-
-    ($($val:expr),*) => {
-        {
-            let mut text =  format!("[{}:{}]", file!(), line!());
-
-            text.push('\t');
-
-            text.push('\"');
-
-            $(
-                text += &format!("{} = {:?}", stringify!($val), $val);
-
-                text.push('\t');
-            )*
-
-            text = text.trim_end().to_string();
-
-            text.push('\"');
-
-            text
-        }
-    };
-}
-
-use crate::{core, ffi};
-
-pub(crate) unsafe fn read_process_memory(
+#[unsafe_fn_body]
+pub fn read_process_memory(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
     size: usize,
 ) -> Result<Vec<u8>, String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if size == 0 {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let mut memory_basic_info: ffi::MemoryBasicInformation =
-        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+    let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<crate::ffi::MemoryBasicInformation>();
 
-    if 0 == ffi::VirtualQueryEx(
+    if 0 == crate::ffi::VirtualQueryEx(
         process_handle,
         address,
         &mut memory_basic_info,
-        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
+        ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut is_page_readable: bool = false;
@@ -74,14 +43,14 @@ pub(crate) unsafe fn read_process_memory(
     let mut new_page_protect: u32 = 0x04;
 
     if !is_page_readable {
-        if 0 == ffi::VirtualProtectEx(
+        if 0 == crate::ffi::VirtualProtectEx(
             process_handle,
             address,
             ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err(location!());
+            return Err(crate::location!());
         }
     }
 
@@ -89,43 +58,44 @@ pub(crate) unsafe fn read_process_memory(
 
     let mut number_of_bytes_read: usize = 0;
 
-    if 0 == ffi::ReadProcessMemory(
+    if 0 == crate::ffi::ReadProcessMemory(
         process_handle,
         address,
         buffer.as_mut_ptr().cast(),
         size,
         &mut number_of_bytes_read,
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if number_of_bytes_read != size {
-        return Err(location!(size, number_of_bytes_read));
+        return Err(crate::location!());
     }
 
     if !is_page_readable {
-        if 0 == ffi::VirtualProtectEx(
+        if 0 == crate::ffi::VirtualProtectEx(
             process_handle,
             address,
             ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err(location!());
+            return Err(crate::location!());
         }
     }
 
     Ok(buffer)
 }
 
-pub(crate) unsafe fn read_process_memory_unchecked(
+#[unsafe_fn_body]
+pub fn read_process_memory_unchecked(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
     size: usize,
 ) -> Vec<u8> {
     let mut buffer: Vec<u8> = vec![0; size];
 
-    ffi::ReadProcessMemory(
+    crate::ffi::ReadProcessMemory(
         process_handle,
         address,
         buffer.as_mut_ptr().cast(),
@@ -136,33 +106,34 @@ pub(crate) unsafe fn read_process_memory_unchecked(
     buffer
 }
 
-pub(crate) unsafe fn write_process_memory<T>(
+#[unsafe_fn_body]
+pub fn write_process_memory<T>(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
     data: &[T],
 ) -> Result<usize, String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if data.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let mut memory_basic_info: ffi::MemoryBasicInformation =
-        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+    let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<crate::ffi::MemoryBasicInformation>();
 
-    if 0 == ffi::VirtualQueryEx(
+    if 0 == crate::ffi::VirtualQueryEx(
         process_handle,
         address,
         &mut memory_basic_info,
-        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
+        ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut is_page_writeable: bool = false;
@@ -176,14 +147,14 @@ pub(crate) unsafe fn write_process_memory<T>(
     let mut new_page_protect: u32 = 0x04;
 
     if !is_page_writeable {
-        if 0 == ffi::VirtualProtectEx(
+        if 0 == crate::ffi::VirtualProtectEx(
             process_handle,
             address,
             ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err(location!());
+            return Err(crate::location!());
         }
     }
 
@@ -191,41 +162,42 @@ pub(crate) unsafe fn write_process_memory<T>(
 
     let size: usize = data.len() * ::core::mem::size_of::<T>();
 
-    if 0 == ffi::WriteProcessMemory(
+    if 0 == crate::ffi::WriteProcessMemory(
         process_handle,
         address,
         data.as_ptr().cast(),
         size,
         &mut number_of_bytes_written,
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if number_of_bytes_written != size {
-        return Err(location!(data.len(), number_of_bytes_written));
+        return Err(crate::location!());
     }
 
     if !is_page_writeable {
-        if 0 == ffi::VirtualProtectEx(
+        if 0 == crate::ffi::VirtualProtectEx(
             process_handle,
             address,
             ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err(location!());
+            return Err(crate::location!());
         }
     }
 
     Ok(number_of_bytes_written)
 }
 
-pub(crate) unsafe fn write_process_memory_unchecked<T>(
+#[unsafe_fn_body]
+pub fn write_process_memory_unchecked<T>(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
     data: &[T],
 ) {
-    ffi::WriteProcessMemory(
+    crate::ffi::WriteProcessMemory(
         process_handle,
         address,
         data.as_ptr().cast(),
@@ -234,17 +206,18 @@ pub(crate) unsafe fn write_process_memory_unchecked<T>(
     );
 }
 
-pub(crate) fn aob_scan_single_threaded(
+#[unsafe_fn_body]
+pub fn aob_scan_single_threaded(
     pattern: &str,
     data: &[u8],
-    return_on_first: bool,
-) -> Result<Vec<usize>, String> {
+    stop_on_first: bool,
+) -> Result<Option<Vec<usize>>, String> {
     if pattern.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if data.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
@@ -297,7 +270,7 @@ pub(crate) fn aob_scan_single_threaded(
                 continue;
             }
 
-            if data[i] != *sig {
+            if data[i] != sig.to_owned() {
                 found = false;
 
                 break;
@@ -307,34 +280,36 @@ pub(crate) fn aob_scan_single_threaded(
         if found {
             offset_array.push(i - start_offset);
 
-            if return_on_first {
+            if stop_on_first {
                 break;
             }
         }
     }
 
-    Ok(offset_array)
+    if offset_array.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(offset_array))
 }
 
-pub(crate) fn aob_scan_multi_threaded(
+#[unsafe_fn_body]
+pub fn aob_scan_multi_threaded(
     pattern: &str,
     data: &[u8],
-    return_on_first: bool,
+    stop_on_first: bool,
     thread_count: u32,
 ) -> Result<Vec<usize>, String> {
     if pattern.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if data.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if thread_count < 2 {
-        return Err(
-            "The number of threads for the multithreaded function cannot be less than 2"
-                .to_string(),
-        );
+        return Err(crate::location!(thread_count));
     }
 
     let thread_count: usize = thread_count as usize;
@@ -469,7 +444,7 @@ pub(crate) fn aob_scan_multi_threaded(
                             return;
                         }
 
-                        if return_on_first {
+                        if stop_on_first {
                             finished.store(true, ::std::sync::atomic::Ordering::Relaxed);
 
                             break;
@@ -486,7 +461,7 @@ pub(crate) fn aob_scan_multi_threaded(
         }
     });
 
-    let millis = ::std::time::Duration::from_millis(20);
+    let millis = ::std::time::Duration::from_millis(33);
 
     while running_thread_count.load(::std::sync::atomic::Ordering::SeqCst) != 0 {
         ::std::thread::sleep(millis);
@@ -497,7 +472,8 @@ pub(crate) fn aob_scan_multi_threaded(
     Ok(result)
 }
 
-pub(crate) unsafe fn standard_alloc(size: usize) -> Result<*mut u8, String> {
+#[unsafe_fn_body]
+pub fn rust_alloc(size: usize) -> Result<*mut u8, String> {
     let layout: ::std::alloc::Layout =
         ::std::alloc::Layout::from_size_align(size, ::std::mem::size_of::<u8>())
             .map_err(|err| err.to_string())?;
@@ -505,15 +481,16 @@ pub(crate) unsafe fn standard_alloc(size: usize) -> Result<*mut u8, String> {
     let allocated_address: *mut u8 = ::std::alloc::alloc(layout);
 
     if allocated_address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(allocated_address)
 }
 
-pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> Result<(), String> {
+#[unsafe_fn_body]
+pub fn rust_free(address: *mut u8, size: usize) -> Result<(), String> {
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let layout: ::std::alloc::Layout =
@@ -525,42 +502,45 @@ pub(crate) unsafe fn standard_free(address: *mut u8, size: usize) -> Result<(), 
     Ok(())
 }
 
-pub(crate) unsafe fn virtual_alloc(
+#[unsafe_fn_body]
+pub unsafe fn virtual_alloc(
     address: *mut ::core::ffi::c_void,
     size: usize,
     mem_allocation: u32,
     page_protect: u32,
 ) -> Result<*mut ::core::ffi::c_void, String> {
-    let allocated_address = ffi::VirtualAlloc(address, size, mem_allocation, page_protect);
+    let allocated_address = crate::ffi::VirtualAlloc(address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(allocated_address)
 }
 
-pub(crate) unsafe fn virtual_free(
+#[unsafe_fn_body]
+pub unsafe fn virtual_free(
     address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
 ) -> Result<(), String> {
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    if mem_free == core::mem_free::RELEASE {
+    if mem_free == crate::consts::mem_free::RELEASE {
         size = 0
     }
 
-    if 0 == ffi::VirtualFree(address, size, mem_free) {
-        return Err(location!());
+    if 0 == crate::ffi::VirtualFree(address, size, mem_free) {
+        return Err(crate::location!());
     }
 
     Ok(())
 }
 
-pub(crate) unsafe fn virtual_alloc_ex(
+#[unsafe_fn_body]
+pub fn virtual_alloc_ex(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
     size: usize,
@@ -568,69 +548,71 @@ pub(crate) unsafe fn virtual_alloc_ex(
     page_protect: u32,
 ) -> Result<*mut ::core::ffi::c_void, String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let allocated_address =
-        ffi::VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
+        crate::ffi::VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(allocated_address)
 }
 
-pub(crate) unsafe fn virtual_free_ex(
+#[unsafe_fn_body]
+pub fn virtual_free_ex(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
 ) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    if mem_free == core::mem_free::RELEASE {
+    if mem_free == crate::consts::mem_free::RELEASE {
         size = 0
     }
 
-    if 0 == ffi::VirtualFreeEx(process_handle, address, size, mem_free) {
-        return Err(location!());
+    if 0 == crate::ffi::VirtualFreeEx(process_handle, address, size, mem_free) {
+        return Err(crate::location!());
     }
 
     Ok(())
 }
 
-pub(crate) unsafe fn virtual_query(
+#[unsafe_fn_body]
+pub fn virtual_query(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
-) -> Result<core::MemoryInformation, String> {
+) -> Result<crate::MemoryInformation, String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let mut memory_basic_info: ffi::MemoryBasicInformation =
-        ::core::mem::zeroed::<ffi::MemoryBasicInformation>();
+    let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
+        ::core::mem::zeroed::<crate::ffi::MemoryBasicInformation>();
 
-    if 0 == ffi::VirtualQueryEx(
+    if 0 == crate::ffi::VirtualQueryEx(
         process_handle,
         address,
         &mut memory_basic_info,
-        ::core::mem::size_of::<ffi::MemoryBasicInformation>(),
+        ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let memory_info: core::MemoryInformation = core::MemoryInformation {
+    let memory_info: crate::MemoryInformation = crate::MemoryInformation {
         base_address: memory_basic_info.base_address,
         allocation_base_address: memory_basic_info.allocation_base,
         allocation_protect: memory_basic_info.allocation_protect,
@@ -645,29 +627,30 @@ pub(crate) unsafe fn virtual_query(
     Ok(memory_info)
 }
 
-pub(crate) unsafe fn virtual_protect(
+#[unsafe_fn_body]
+pub fn virtual_protect(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
     new_page_protect: u32,
 ) -> Result<u32, String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut old_page_protect: u32 = 0;
 
-    if 0 == ffi::VirtualProtectEx(
+    if 0 == crate::ffi::VirtualProtectEx(
         process_handle,
         address,
         ::core::mem::size_of::<*mut ::core::ffi::c_void>(),
         new_page_protect,
         &mut old_page_protect,
     ) {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(old_page_protect)

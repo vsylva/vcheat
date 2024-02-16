@@ -1,19 +1,18 @@
-use vcheat::{memory, process, *};
-
+use vcheat::{consts::*, memory, process};
 fn main() {
     let process_handle = process::open_process(::std::process::id()).unwrap();
 
     let size = 1024;
 
-    '_std_alloc: {
-        let standard_allocated_address = memory::standard_alloc(size).unwrap();
+    '_rust_alloc: {
+        let rust_allocated_address = memory::rust_alloc(size).unwrap();
 
-        let standard_query_info =
-            memory::virtual_query(process_handle, standard_allocated_address.cast()).unwrap();
+        let rust_query_info =
+            memory::virtual_query(process_handle, rust_allocated_address.cast()).unwrap();
 
-        assert_eq!(standard_query_info.page_protect, page_protect::READ_WRITE);
+        assert_eq!(rust_query_info.page_protect, page_protect::READ_WRITE);
 
-        memory::standard_free(standard_allocated_address, size).unwrap();
+        memory::rust_free(rust_allocated_address, size).unwrap();
     }
 
     '_win_alloc: {

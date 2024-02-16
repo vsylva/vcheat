@@ -3,15 +3,14 @@ use vcheat::{memory, module, process, system};
 fn main() {
     let module_path = r"C:\Windows\System32\Windows.UI.Xaml.dll";
 
-    let max_thread_count = system::get_system_info().number_of_processors;
+    let max_threads = system::get_system_info().number_of_processors;
 
-    let return_on_first = false;
+    let stop_on_first = false;
 
     '_scan_file: {
-        let mut offset_array1 = file_scan_single_threaded(module_path, return_on_first);
+        let mut offset_array1 = file_scan_single_threaded(module_path, stop_on_first);
 
-        let mut offset_array2 =
-            file_scan_multi_threaded(module_path, return_on_first, max_thread_count);
+        let mut offset_array2 = file_scan_multi_threaded(module_path, stop_on_first, max_threads);
 
         offset_array1.sort();
 
@@ -26,14 +25,10 @@ fn main() {
         let module_name = "Explorer.exe";
 
         let mut offset_array3 =
-            process_scan_single_threaded(process_name, module_name, return_on_first);
+            process_scan_single_threaded(process_name, module_name, stop_on_first);
 
-        let mut offset_array4 = process_scan_multi_threaded(
-            process_name,
-            module_name,
-            return_on_first,
-            max_thread_count,
-        );
+        let mut offset_array4 =
+            process_scan_multi_threaded(process_name, module_name, stop_on_first, max_threads);
 
         offset_array3.sort();
 
@@ -46,7 +41,7 @@ fn main() {
 fn process_scan_single_threaded(
     process_name: &'static str,
     module_name: &'static str,
-    return_on_first: bool,
+    stop_on_first: bool,
 ) -> Vec<usize> {
     let process_info = process::get_processes_info()
         .unwrap()
@@ -83,14 +78,16 @@ fn process_scan_single_threaded(
 
     process::close_handle(process_handle).unwrap();
 
-    memory::aob_scan_single_threaded("5C ? 6D ??", &module_data, return_on_first).unwrap()
+    memory::aob_scan_single_threaded("5C ? 6D ??", &module_data, stop_on_first)
+        .unwrap()
+        .unwrap()
 }
 
 fn process_scan_multi_threaded(
     process_name: &'static str,
     module_name: &'static str,
-    return_on_first: bool,
-    thread_count: u32,
+    stop_on_first: bool,
+    with_threads: u32,
 ) -> Vec<usize> {
     let process_info = process::get_processes_info()
         .unwrap()
@@ -119,29 +116,28 @@ fn process_scan_multi_threaded(
 
     process::close_handle(process_handle).unwrap();
 
-    memory::aob_scan_multi_threaded("5C ? 6D ??", &module_data, return_on_first, thread_count)
+    memory::aob_scan_multi_threaded("5C ? 6D ??", &module_data, stop_on_first, with_threads)
         .unwrap()
 }
 
-fn file_scan_single_threaded(path: &str, return_on_first: bool) -> Vec<usize> {
+fn file_scan_single_threaded(path: &str, stop_on_first: bool) -> Vec<usize> {
     let file_data = ::std::fs::read(::std::path::Path::new(path)).unwrap();
 
     let pattern = "5C ? 6D ??";
 
     let offset_array =
-        memory::aob_scan_single_threaded(pattern, &file_data, return_on_first).unwrap();
+        memory::aob_scan_single_threaded(pattern, &file_data, stop_on_first).unwrap();
 
-    offset_array
+    offset_array.unwrap()
 }
 
-fn file_scan_multi_threaded(path: &str, return_on_first: bool, thread_count: u32) -> Vec<usize> {
+fn file_scan_multi_threaded(path: &str, stop_on_first: bool, with_threads: u32) -> Vec<usize> {
     let file_data = ::std::fs::read(::std::path::Path::new(path)).unwrap();
 
     let pattern = "5C ? 6D ??";
 
     let offset_array =
-        memory::aob_scan_multi_threaded(pattern, &file_data, return_on_first, thread_count)
-            .unwrap();
+        memory::aob_scan_multi_threaded(pattern, &file_data, stop_on_first, with_threads).unwrap();
 
     offset_array
 }

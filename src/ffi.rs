@@ -127,6 +127,8 @@ extern "system" {
 
     pub(crate) fn FreeLibrary(hLibModule: *mut ::core::ffi::c_void) -> i32;
 
+    pub(crate) fn FreeLibraryAndExitThread(hLibModule: *mut ::core::ffi::c_void, dwExitCode: u32);
+
     pub(crate) fn AllocConsole() -> i32;
 
     pub(crate) fn FreeConsole() -> i32;
@@ -143,6 +145,31 @@ extern "system" {
         lpProcName: *const i8,
     ) -> *mut ::core::ffi::c_void;
 
+    pub(crate) fn GlobalAlloc(uFlags: u32, dwBytes: usize) -> *mut ::core::ffi::c_void;
+
+    pub(crate) fn GlobalLock(hMem: *mut ::core::ffi::c_void) -> *mut ::core::ffi::c_void;
+
+    pub(crate) fn GlobalUnlock(hMem: *mut ::core::ffi::c_void) -> i32;
+
+    pub(crate) fn GlobalFree(hMem: *mut ::core::ffi::c_void) -> *mut ::core::ffi::c_void;
+
+}
+
+#[link(name = "user32")]
+extern "system" {
+
+    pub(crate) fn OpenClipboard(hWndNewOwner: *mut ::core::ffi::c_void) -> i32;
+
+    pub(crate) fn EmptyClipboard() -> i32;
+
+    pub(crate) fn CloseClipboard() -> i32;
+
+    pub(crate) fn GetClipboardData(uFormat: u32) -> *mut ::core::ffi::c_void;
+
+    pub(crate) fn SetClipboardData(
+        uFormat: u32,
+        hMem: *mut ::core::ffi::c_void,
+    ) -> *mut ::core::ffi::c_void;
 }
 
 #[link(name = "ntdll")]

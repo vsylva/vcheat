@@ -1,71 +1,41 @@
-macro_rules! location {
-    () => {
-        format!("[{}:{}]", file!(), line!())
-    };
+use unsafe_fn_body::unsafe_fn_body;
 
-    ($val:literal) => {
-        format!("[{}:{}]\t\"{}\"", file!(), line!(), $val)
-    };
-
-    ($($val:expr),*) => {
-        {
-            let mut text =  format!("[{}:{}]", file!(), line!());
-
-            text.push('\t');
-
-            text.push('\"');
-
-            $(
-                text += &format!("{} = {:?}", stringify!($val), $val);
-
-                text.push('\t');
-            )*
-
-            text = text.trim_end().to_string();
-
-            text.push('\"');
-
-            text
-        }
-    };
-}
-
-use crate::{core, ffi};
-
-pub(crate) unsafe fn get_modules_info(
-    process_id: u32,
-) -> Result<Vec<core::ModuleInformation>, String> {
+#[unsafe_fn_body]
+pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void =
-        ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
+        crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as isize == -1 {
-        return Err(location!(snapshot_handle));
+        return Err(crate::location!(snapshot_handle));
     }
 
-    let mut module_entry: ffi::ModuleEntry32W = ::core::mem::zeroed::<ffi::ModuleEntry32W>();
+    let mut module_entry: crate::ffi::ModuleEntry32W =
+        ::core::mem::zeroed::<crate::ffi::ModuleEntry32W>();
 
-    module_entry.dw_size = ::core::mem::size_of::<ffi::ModuleEntry32W>() as u32;
+    module_entry.dw_size = ::core::mem::size_of::<crate::ffi::ModuleEntry32W>() as u32;
 
-    if 0 == ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
-        crate::core::process::close_handle(snapshot_handle)?;
+    if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
+        crate::process::close_handle(snapshot_handle)?;
 
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let mut module_entry_array: Vec<ffi::ModuleEntry32W> = Vec::<ffi::ModuleEntry32W>::new();
+    let mut module_entry_array: Vec<crate::ffi::ModuleEntry32W> =
+        Vec::<crate::ffi::ModuleEntry32W>::new();
 
     module_entry_array.push(module_entry.to_owned());
 
-    while 0 != ffi::Module32NextW(snapshot_handle, &mut module_entry) {
+    while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut module_entry) {
         module_entry_array.push(module_entry.to_owned());
     }
 
-    crate::core::process::close_handle(snapshot_handle)?;
+    crate::process::close_handle(snapshot_handle)?;
 
-    let mut module_info_array: Vec<core::ModuleInformation> = Vec::<core::ModuleInformation>::new();
+    let mut module_info_array: Vec<crate::ModuleInformation> =
+        Vec::<crate::ModuleInformation>::new();
 
     for module_entry in module_entry_array {
-        module_info_array.push(core::ModuleInformation {
+        module_info_array.push(crate::ModuleInformation {
             process_id: module_entry.th32_process_id,
             base_address: module_entry.mod_base_addr,
             size: module_entry.mod_base_size,
@@ -76,7 +46,7 @@ pub(crate) unsafe fn get_modules_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(location!()),
+                    None => return Err(crate::location!()),
                 }
             },
             path: {
@@ -85,7 +55,7 @@ pub(crate) unsafe fn get_modules_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(location!()),
+                    None => return Err(crate::location!()),
                 }
             },
         })
@@ -94,31 +64,33 @@ pub(crate) unsafe fn get_modules_info(
     Ok(module_info_array)
 }
 
-pub(crate) unsafe fn get_module_info(
+#[unsafe_fn_body]
+pub fn get_module_info(
     process_id: u32,
     module_name: &str,
-) -> Result<core::ModuleInformation, String> {
+) -> Result<crate::ModuleInformation, String> {
     if module_name.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let module_name: String = module_name.to_lowercase();
 
     let snapshot_handle: *mut ::core::ffi::c_void =
-        ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
+        crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as i32 == -1 {
-        return Err(location!(snapshot_handle));
+        return Err(crate::location!(snapshot_handle));
     }
 
-    let mut module_entry: ffi::ModuleEntry32W = ::core::mem::zeroed::<ffi::ModuleEntry32W>();
+    let mut module_entry: crate::ffi::ModuleEntry32W =
+        ::core::mem::zeroed::<crate::ffi::ModuleEntry32W>();
 
-    module_entry.dw_size = ::core::mem::size_of::<ffi::ModuleEntry32W>() as u32;
+    module_entry.dw_size = ::core::mem::size_of::<crate::ffi::ModuleEntry32W>() as u32;
 
-    if 0 == ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
-        crate::core::process::close_handle(snapshot_handle)?;
+    if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
+        crate::process::close_handle(snapshot_handle)?;
 
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let module_entry_name: String = {
@@ -127,14 +99,14 @@ pub(crate) unsafe fn get_module_info(
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err(location!()),
+            None => return Err(crate::location!()),
         }
     };
 
     if module_entry_name.to_lowercase() == module_name {
-        crate::core::process::close_handle(snapshot_handle)?;
+        crate::process::close_handle(snapshot_handle)?;
 
-        return Ok(core::ModuleInformation {
+        return Ok(crate::ModuleInformation {
             process_id: module_entry.th32_process_id,
             base_address: module_entry.mod_base_addr,
             size: module_entry.mod_base_size,
@@ -146,27 +118,27 @@ pub(crate) unsafe fn get_module_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(location!()),
+                    None => return Err(crate::location!()),
                 }
             },
         });
     }
 
-    while 0 != ffi::Module32NextW(snapshot_handle, &mut module_entry) {
+    while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut module_entry) {
         let module_entry_name: String = {
             let result: ::std::ffi::OsString =
                 ::std::os::windows::prelude::OsStringExt::from_wide(&module_entry.sz_module);
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
-                None => return Err(location!()),
+                None => return Err(crate::location!()),
             }
         };
 
         if module_entry_name.to_lowercase() == module_name {
-            crate::core::process::close_handle(snapshot_handle)?;
+            crate::process::close_handle(snapshot_handle)?;
 
-            return Ok(core::ModuleInformation {
+            return Ok(crate::ModuleInformation {
                 process_id: module_entry.th32_process_id,
                 base_address: module_entry.mod_base_addr,
                 size: module_entry.mod_base_size,
@@ -180,25 +152,26 @@ pub(crate) unsafe fn get_module_info(
 
                     match result.to_str() {
                         Some(some) => some.trim_end_matches('\0').to_string(),
-                        None => return Err(location!()),
+                        None => return Err(crate::location!()),
                     }
                 },
             });
         }
     }
 
-    crate::core::process::close_handle(snapshot_handle)?;
+    crate::process::close_handle(snapshot_handle)?;
 
-    Err(location!())
+    Err(crate::location!())
 }
 
-pub(crate) unsafe fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> {
+#[unsafe_fn_body]
+pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_path.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if dll_path.len() > 260 {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -207,35 +180,35 @@ pub(crate) unsafe fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err(location!()),
+        None => return Err(crate::location!()),
     };
 
     dll_path.push('\0');
 
     let dll_path_buffer: Vec<u16> = dll_path.encode_utf16().collect::<Vec<u16>>();
 
-    let module_handle: *mut ::core::ffi::c_void = ffi::LoadLibraryW(dll_path_buffer.as_ptr());
+    let module_handle: *mut ::core::ffi::c_void =
+        crate::ffi::LoadLibraryW(dll_path_buffer.as_ptr());
 
     if module_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(module_handle)
 }
 
-pub(crate) unsafe fn load_system_library(
-    dll_name: &str,
-) -> Result<*mut ::core::ffi::c_void, String> {
+#[unsafe_fn_body]
+pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_name.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut sys_dir_path_buffer: Vec<u16> = Vec::new();
 
     sys_dir_path_buffer.resize(260, 0);
 
-    if 0 == ffi::GetSystemDirectoryW(sys_dir_path_buffer.as_mut_ptr(), 260) {
-        return Err(location!());
+    if 0 == crate::ffi::GetSystemDirectoryW(sys_dir_path_buffer.as_mut_ptr(), 260) {
+        return Err(crate::location!());
     }
 
     let mut dll_path: String = {
@@ -244,7 +217,7 @@ pub(crate) unsafe fn load_system_library(
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err(location!()),
+            None => return Err(crate::location!()),
         }
     };
 
@@ -255,57 +228,73 @@ pub(crate) unsafe fn load_system_library(
     load_library(&dll_path)
 }
 
-pub(crate) unsafe fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), String> {
+#[unsafe_fn_body]
+pub fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if module_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    if 0 == ffi::FreeLibrary(module_handle) {
-        return Err(location!());
+    if 0 == crate::ffi::FreeLibrary(module_handle) {
+        return Err(crate::location!());
     }
 
     Ok(())
 }
 
-pub(crate) unsafe fn get_proc_address(
+#[unsafe_fn_body]
+pub fn free_library_exit_thread(
+    module_handle: *mut ::core::ffi::c_void,
+    exit_code: u32,
+) -> Result<(), String> {
+    if module_handle.is_null() {
+        return Err(crate::location!());
+    }
+
+    Ok(crate::ffi::FreeLibraryAndExitThread(
+        module_handle,
+        exit_code,
+    ))
+}
+
+#[unsafe_fn_body]
+pub fn get_proc_address(
     module_handle: *mut ::core::ffi::c_void,
     proc_name: &str,
 ) -> Result<*mut ::core::ffi::c_void, String> {
     if module_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if proc_name.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let mut proc_name_bytes: Vec<u8> = proc_name.as_bytes().to_vec();
 
     proc_name_bytes.push(b'\0');
 
-    let proc_address = ffi::GetProcAddress(module_handle, proc_name_bytes.as_mut_ptr().cast());
+    let proc_address =
+        crate::ffi::GetProcAddress(module_handle, proc_name_bytes.as_mut_ptr().cast());
 
     if proc_address.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     Ok(proc_address)
 }
 
-pub(crate) unsafe fn inject_dll(
-    process_handle: *mut ::core::ffi::c_void,
-    dll_path: &str,
-) -> Result<(), String> {
+#[unsafe_fn_body]
+pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if dll_path.is_empty() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if dll_path.len() > 260 {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -314,7 +303,7 @@ pub(crate) unsafe fn inject_dll(
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err(location!()),
+        None => return Err(crate::location!()),
     };
 
     dll_path.push('\0');
@@ -323,26 +312,21 @@ pub(crate) unsafe fn inject_dll(
 
     let dll_path_buffer_size = dll_path_buffer.len() * ::core::mem::size_of::<u16>();
 
-    let kernel32_handle = crate::core::module::load_system_library("kernel32.dll")?;
+    let kernel32_handle = crate::module::load_system_library("kernel32.dll")?;
 
-    let load_library_w_proc =
-        crate::core::module::get_proc_address(kernel32_handle, "LoadLibraryW")?;
+    let load_library_w_proc = crate::module::get_proc_address(kernel32_handle, "LoadLibraryW")?;
 
-    let dll_path_buffer_alloc = crate::core::memory::virtual_alloc_ex(
+    let dll_path_buffer_alloc = crate::memory::virtual_alloc_ex(
         process_handle,
         ::core::ptr::null_mut(),
         dll_path_buffer_size,
-        core::mem_allocation::COMMIT,
-        core::page_protect::READ_WRITE,
+        crate::consts::mem_allocation::COMMIT,
+        crate::consts::page_protect::READ_WRITE,
     )?;
 
-    crate::core::memory::write_process_memory(
-        process_handle,
-        dll_path_buffer_alloc,
-        &dll_path_buffer,
-    )?;
+    crate::memory::write_process_memory(process_handle, dll_path_buffer_alloc, &dll_path_buffer)?;
 
-    let remote_thread_handle = ffi::CreateRemoteThread(
+    let remote_thread_handle = crate::ffi::CreateRemoteThread(
         process_handle,
         ::core::ptr::null_mut(),
         0,
@@ -353,24 +337,26 @@ pub(crate) unsafe fn inject_dll(
     );
 
     if remote_thread_handle.is_null() {
-        crate::core::memory::virtual_free_ex(
+        crate::memory::virtual_free_ex(
             process_handle,
             dll_path_buffer_alloc,
             0,
-            core::mem_free::RELEASE,
+            crate::consts::mem_free::RELEASE,
         )?;
 
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let _result = ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);
+    crate::ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFF);
+
+    // let _result = crate::ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);
 
     // if result != 0 {
     //     crate::core::memory::virtual_free_ex(
     //         process_handle,
     //         dll_path_buffer_alloc,
     //         0,
-    //         core::mem_free::RELEASE,
+    //         ::core::mem_free::RELEASE,
     //     )?;
 
     //     crate::core::process::close_handle(remote_thread_handle)?;
@@ -381,35 +367,36 @@ pub(crate) unsafe fn inject_dll(
     //     );
     // }
 
-    crate::core::memory::virtual_free_ex(
+    crate::memory::virtual_free_ex(
         process_handle,
         dll_path_buffer_alloc,
         0,
-        core::mem_free::RELEASE,
+        crate::consts::mem_free::RELEASE,
     )?;
 
-    crate::core::process::close_handle(remote_thread_handle)?;
+    crate::process::close_handle(remote_thread_handle)?;
 
     Ok(())
 }
 
-pub(crate) unsafe fn eject_dll(
+#[unsafe_fn_body]
+pub fn eject_dll(
     process_handle: *mut ::core::ffi::c_void,
     module_handle: *mut ::core::ffi::c_void,
 ) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
     if module_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let kernel32_handle = crate::core::module::load_system_library("kernel32.dll")?;
+    let kernel32_handle = crate::module::load_system_library("kernel32.dll")?;
 
-    let proc_free_library = crate::core::module::get_proc_address(kernel32_handle, "FreeLibrary")?;
+    let proc_free_library = crate::module::get_proc_address(kernel32_handle, "FreeLibrary")?;
 
-    let remote_thread_handle = ffi::CreateRemoteThread(
+    let remote_thread_handle = crate::ffi::CreateRemoteThread(
         process_handle,
         ::core::ptr::null_mut(),
         0,
@@ -420,10 +407,10 @@ pub(crate) unsafe fn eject_dll(
     );
 
     if remote_thread_handle.is_null() {
-        return Err(location!());
+        return Err(crate::location!());
     }
 
-    let _result = ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);
+    crate::ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);
 
     // if result != 0 {
     //     crate::core::process::close_handle(remote_thread_handle)?;
@@ -434,7 +421,7 @@ pub(crate) unsafe fn eject_dll(
     //     );
     // }
 
-    crate::core::process::close_handle(remote_thread_handle)?;
+    crate::process::close_handle(remote_thread_handle)?;
 
     Ok(())
 }
