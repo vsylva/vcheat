@@ -1,24 +1,10 @@
-//! # 中文
-//!
-//! [![Crates.io](https://img.shields.io/crates/v/vcheat)](https://crates.io/crates/vcheat)
-//!
-//! "vcheat" 是用 Rust 语言编写的适用于 Windows 平台的进程作弊库
-//!
-//! ```example
-//! // https://github.com/vSylva/vcheat/tree/main/examples
-//! cargo run --example
-//! ```
-//!
-//! # English
-//!
-//! [![Crates.io](https://img.shields.io/crates/v/vcheat)](https://crates.io/crates/vcheat)
-//!
-//! "vcheat" is a process cheating library designed for the Windows platform and written in Rust programming language
-//!
-//! ```example
-//! // https://github.com/vSylva/vcheat/tree/main/examples
-//! cargo run --example
-//! ```
+#![doc = "[![Crates.io](https://img.shields.io/crates/v/vcheat)](https://crates.io/crates/vcheat)
+
+Rust Language Game Hacking Library
+```rust
+// https://github.com/vSylva/vcheat/tree/main/examples
+cargo run --example
+```"]
 
 pub mod consts;
 mod ffi;
@@ -26,17 +12,6 @@ pub mod memory;
 pub mod module;
 pub mod process;
 pub mod system;
-
-#[macro_export]
-macro_rules! location {
-    () => {
-        format!("[{}:{}]", file!(), line!())
-    };
-
-    ($val:expr) => {
-        format!("[{}:{}]\t\"{:?}\"", file!(), line!(), $val)
-    };
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SystemInfomaion {

@@ -29,7 +29,7 @@ unsafe fn get_string_by_dmi(
     mut index: u8,
 ) -> Result<String, String> {
     if index == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut base_address: *const i8 = dm_header.cast::<i8>().add(dm_header.read().length as usize);
@@ -46,7 +46,7 @@ unsafe fn get_string_by_dmi(
     }
 
     if base_address.read() == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let strlen: usize = ::std::ffi::CStr::from_ptr(base_address)
@@ -81,7 +81,7 @@ pub fn get_dmi_info() -> Result<crate::DmiInformation, String> {
         crate::ffi::GetSystemFirmwareTable(signature, 0, buffer.as_mut_ptr(), return_length);
 
     if return_length > return_length {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let smb: crate::ffi::RawSMBIOSData = crate::ffi::RawSMBIOSData {
@@ -267,19 +267,19 @@ pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
     buffer.push(0);
 
     if crate::ffi::OpenClipboard(::core::ptr::null_mut()) == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if crate::ffi::EmptyClipboard() == 0 {
         crate::ffi::CloseClipboard();
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let allocated_ptr: *mut ::core::ffi::c_void = crate::ffi::GlobalAlloc(2, buffer.len() * 2);
 
     if allocated_ptr.is_null() {
         crate::ffi::CloseClipboard();
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let locked_ptr: *mut ::core::ffi::c_void = crate::ffi::GlobalLock(allocated_ptr);
@@ -288,7 +288,7 @@ pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
         crate::ffi::CloseClipboard();
         crate::ffi::GlobalFree(allocated_ptr);
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     ::std::ptr::copy_nonoverlapping(buffer.as_ptr(), locked_ptr.cast(), buffer.len());
@@ -299,7 +299,7 @@ pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
         crate::ffi::CloseClipboard();
         crate::ffi::GlobalFree(allocated_ptr);
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     };
 
     crate::ffi::CloseClipboard();
@@ -311,7 +311,7 @@ pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
 #[unsafe_fn_body]
 pub fn get_clipboard_unicode_text() -> Result<String, String> {
     if crate::ffi::OpenClipboard(::core::ptr::null_mut()) == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let clipboard_handle = crate::ffi::GetClipboardData(13);
@@ -321,7 +321,7 @@ pub fn get_clipboard_unicode_text() -> Result<String, String> {
     if locked_ptr.is_null() {
         crate::ffi::CloseClipboard();
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut buffer: Vec<u16> = Vec::new();

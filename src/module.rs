@@ -6,7 +6,12 @@ pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>
         crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as isize == -1 {
-        return Err(crate::location!(snapshot_handle));
+        return Err(format!(
+            "[{}:{}]\t\"{:?}\"",
+            file!(),
+            line!(),
+            snapshot_handle
+        ));
     }
 
     let mut module_entry: crate::ffi::ModuleEntry32W =
@@ -17,7 +22,7 @@ pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
         crate::process::close_handle(snapshot_handle)?;
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut module_entry_array: Vec<crate::ffi::ModuleEntry32W> =
@@ -46,7 +51,7 @@ pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(crate::location!()),
+                    None => return Err(format!("[{}:{}]", file!(), line!())),
                 }
             },
             path: {
@@ -55,7 +60,7 @@ pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(crate::location!()),
+                    None => return Err(format!("[{}:{}]", file!(), line!())),
                 }
             },
         })
@@ -70,7 +75,7 @@ pub fn get_module_info(
     module_name: &str,
 ) -> Result<crate::ModuleInformation, String> {
     if module_name.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let module_name: String = module_name.to_lowercase();
@@ -79,7 +84,12 @@ pub fn get_module_info(
         crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
 
     if snapshot_handle as i32 == -1 {
-        return Err(crate::location!(snapshot_handle));
+        return Err(format!(
+            "[{}:{}]\t\"{:?}\"",
+            file!(),
+            line!(),
+            snapshot_handle
+        ));
     }
 
     let mut module_entry: crate::ffi::ModuleEntry32W =
@@ -90,7 +100,7 @@ pub fn get_module_info(
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut module_entry) {
         crate::process::close_handle(snapshot_handle)?;
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let module_entry_name: String = {
@@ -99,7 +109,7 @@ pub fn get_module_info(
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err(crate::location!()),
+            None => return Err(format!("[{}:{}]", file!(), line!())),
         }
     };
 
@@ -118,7 +128,7 @@ pub fn get_module_info(
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(crate::location!()),
+                    None => return Err(format!("[{}:{}]", file!(), line!())),
                 }
             },
         });
@@ -131,7 +141,7 @@ pub fn get_module_info(
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
-                None => return Err(crate::location!()),
+                None => return Err(format!("[{}:{}]", file!(), line!())),
             }
         };
 
@@ -152,7 +162,7 @@ pub fn get_module_info(
 
                     match result.to_str() {
                         Some(some) => some.trim_end_matches('\0').to_string(),
-                        None => return Err(crate::location!()),
+                        None => return Err(format!("[{}:{}]", file!(), line!())),
                     }
                 },
             });
@@ -161,17 +171,17 @@ pub fn get_module_info(
 
     crate::process::close_handle(snapshot_handle)?;
 
-    Err(crate::location!())
+    Err(format!("[{}:{}]", file!(), line!()))
 }
 
 #[unsafe_fn_body]
 pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_path.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if dll_path.len() > 260 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -180,7 +190,7 @@ pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> 
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err(crate::location!()),
+        None => return Err(format!("[{}:{}]", file!(), line!())),
     };
 
     dll_path.push('\0');
@@ -191,7 +201,7 @@ pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> 
         crate::ffi::LoadLibraryW(dll_path_buffer.as_ptr());
 
     if module_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(module_handle)
@@ -200,7 +210,7 @@ pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> 
 #[unsafe_fn_body]
 pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_name.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut sys_dir_path_buffer: Vec<u16> = Vec::new();
@@ -208,7 +218,7 @@ pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, S
     sys_dir_path_buffer.resize(260, 0);
 
     if 0 == crate::ffi::GetSystemDirectoryW(sys_dir_path_buffer.as_mut_ptr(), 260) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut dll_path: String = {
@@ -217,7 +227,7 @@ pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, S
 
         match result.to_str() {
             Some(some) => some.trim_end_matches('\0').to_string(),
-            None => return Err(crate::location!()),
+            None => return Err(format!("[{}:{}]", file!(), line!())),
         }
     };
 
@@ -231,11 +241,11 @@ pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, S
 #[unsafe_fn_body]
 pub fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if module_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if 0 == crate::ffi::FreeLibrary(module_handle) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -247,7 +257,7 @@ pub fn free_library_exit_thread(
     exit_code: u32,
 ) -> Result<(), String> {
     if module_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(crate::ffi::FreeLibraryAndExitThread(
@@ -262,11 +272,11 @@ pub fn get_proc_address(
     proc_name: &str,
 ) -> Result<*mut ::core::ffi::c_void, String> {
     if module_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if proc_name.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut proc_name_bytes: Vec<u8> = proc_name.as_bytes().to_vec();
@@ -277,7 +287,7 @@ pub fn get_proc_address(
         crate::ffi::GetProcAddress(module_handle, proc_name_bytes.as_mut_ptr().cast());
 
     if proc_address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(proc_address)
@@ -286,15 +296,15 @@ pub fn get_proc_address(
 #[unsafe_fn_body]
 pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if dll_path.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if dll_path.len() > 260 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let dll_path_buf: ::std::path::PathBuf = ::std::path::Path::new(dll_path)
@@ -303,7 +313,7 @@ pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> R
 
     let mut dll_path: String = match dll_path_buf.to_str() {
         Some(some) => some.trim_start_matches(r"\\?\").to_string(),
-        None => return Err(crate::location!()),
+        None => return Err(format!("[{}:{}]", file!(), line!())),
     };
 
     dll_path.push('\0');
@@ -344,7 +354,7 @@ pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> R
             crate::consts::mem_free::RELEASE,
         )?;
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     crate::ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFF);
@@ -385,11 +395,11 @@ pub fn eject_dll(
     module_handle: *mut ::core::ffi::c_void,
 ) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if module_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let kernel32_handle = crate::module::load_system_library("kernel32.dll")?;
@@ -407,7 +417,7 @@ pub fn eject_dll(
     );
 
     if remote_thread_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     crate::ffi::WaitForSingleObject(remote_thread_handle, 0xFFFFFFFF);

@@ -7,15 +7,15 @@ pub fn read_process_memory(
     size: usize,
 ) -> Result<Vec<u8>, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if size == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
@@ -27,7 +27,7 @@ pub fn read_process_memory(
         &mut memory_basic_info,
         ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut is_page_readable: bool = false;
@@ -50,7 +50,7 @@ pub fn read_process_memory(
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err(crate::location!());
+            return Err(format!("[{}:{}]", file!(), line!()));
         }
     }
 
@@ -65,11 +65,11 @@ pub fn read_process_memory(
         size,
         &mut number_of_bytes_read,
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if number_of_bytes_read != size {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if !is_page_readable {
@@ -80,7 +80,7 @@ pub fn read_process_memory(
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err(crate::location!());
+            return Err(format!("[{}:{}]", file!(), line!()));
         }
     }
 
@@ -113,15 +113,15 @@ pub fn write_process_memory<T>(
     data: &[T],
 ) -> Result<usize, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if data.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
@@ -133,7 +133,7 @@ pub fn write_process_memory<T>(
         &mut memory_basic_info,
         ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut is_page_writeable: bool = false;
@@ -154,7 +154,7 @@ pub fn write_process_memory<T>(
             new_page_protect,
             &mut old_page_protect,
         ) {
-            return Err(crate::location!());
+            return Err(format!("[{}:{}]", file!(), line!()));
         }
     }
 
@@ -169,11 +169,11 @@ pub fn write_process_memory<T>(
         size,
         &mut number_of_bytes_written,
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if number_of_bytes_written != size {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if !is_page_writeable {
@@ -184,7 +184,7 @@ pub fn write_process_memory<T>(
             old_page_protect,
             &mut new_page_protect,
         ) {
-            return Err(crate::location!());
+            return Err(format!("[{}:{}]", file!(), line!()));
         }
     }
 
@@ -213,11 +213,11 @@ pub fn aob_scan_single_threaded(
     stop_on_first: bool,
 ) -> Result<Option<Vec<usize>>, String> {
     if pattern.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if data.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut signature: Vec<u8> = Vec::<u8>::new();
@@ -301,15 +301,15 @@ pub fn aob_scan_multi_threaded(
     thread_count: u32,
 ) -> Result<Vec<usize>, String> {
     if pattern.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if data.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if thread_count < 2 {
-        return Err(crate::location!(thread_count));
+        return Err(format!("[{}:{}]\t\"{:?}\"", file!(), line!(), thread_count));
     }
 
     let thread_count: usize = thread_count as usize;
@@ -481,7 +481,7 @@ pub fn rust_alloc(size: usize) -> Result<*mut u8, String> {
     let allocated_address: *mut u8 = ::std::alloc::alloc(layout);
 
     if allocated_address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(allocated_address)
@@ -490,7 +490,7 @@ pub fn rust_alloc(size: usize) -> Result<*mut u8, String> {
 #[unsafe_fn_body]
 pub fn rust_free(address: *mut u8, size: usize) -> Result<(), String> {
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let layout: ::std::alloc::Layout =
@@ -512,7 +512,7 @@ pub unsafe fn virtual_alloc(
     let allocated_address = crate::ffi::VirtualAlloc(address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(allocated_address)
@@ -525,7 +525,7 @@ pub unsafe fn virtual_free(
     mem_free: u32,
 ) -> Result<(), String> {
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if mem_free == crate::consts::mem_free::RELEASE {
@@ -533,7 +533,7 @@ pub unsafe fn virtual_free(
     }
 
     if 0 == crate::ffi::VirtualFree(address, size, mem_free) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -548,14 +548,14 @@ pub fn virtual_alloc_ex(
     page_protect: u32,
 ) -> Result<*mut ::core::ffi::c_void, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let allocated_address =
         crate::ffi::VirtualAllocEx(process_handle, address, size, mem_allocation, page_protect);
 
     if allocated_address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(allocated_address)
@@ -569,11 +569,11 @@ pub fn virtual_free_ex(
     mem_free: u32,
 ) -> Result<(), String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if mem_free == crate::consts::mem_free::RELEASE {
@@ -581,7 +581,7 @@ pub fn virtual_free_ex(
     }
 
     if 0 == crate::ffi::VirtualFreeEx(process_handle, address, size, mem_free) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -593,11 +593,11 @@ pub fn virtual_query(
     address: *mut ::core::ffi::c_void,
 ) -> Result<crate::MemoryInformation, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut memory_basic_info: crate::ffi::MemoryBasicInformation =
@@ -609,7 +609,7 @@ pub fn virtual_query(
         &mut memory_basic_info,
         ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let memory_info: crate::MemoryInformation = crate::MemoryInformation {
@@ -634,11 +634,11 @@ pub fn virtual_protect(
     new_page_protect: u32,
 ) -> Result<u32, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if address.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut old_page_protect: u32 = 0;
@@ -650,7 +650,7 @@ pub fn virtual_protect(
         new_page_protect,
         &mut old_page_protect,
     ) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(old_page_protect)

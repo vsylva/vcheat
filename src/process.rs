@@ -5,7 +5,7 @@ pub fn open_process(process_id: u32) -> Result<*mut ::core::ffi::c_void, String>
     let process_handle: *mut ::core::ffi::c_void = crate::ffi::OpenProcess(0x1F0FFF, 0, process_id);
 
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(process_handle)
@@ -14,13 +14,13 @@ pub fn open_process(process_id: u32) -> Result<*mut ::core::ffi::c_void, String>
 #[unsafe_fn_body]
 pub fn close_handle(handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let result = crate::ffi::CloseHandle(handle);
 
     if result == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -34,7 +34,7 @@ pub fn close_handle_unchecked(handle: *mut ::core::ffi::c_void) -> i32 {
 #[unsafe_fn_body]
 pub fn is_wow64_process(process_handle: *mut ::core::ffi::c_void) -> Result<bool, String> {
     if process_handle.is_null() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut is_wow64: i32 = 0;
@@ -42,7 +42,7 @@ pub fn is_wow64_process(process_handle: *mut ::core::ffi::c_void) -> Result<bool
     let result: i32 = crate::ffi::IsWow64Process(process_handle, &mut is_wow64);
 
     if result == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(is_wow64 != 0)
@@ -53,7 +53,12 @@ pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as i32 == -1 {
-        return Err(crate::location!(snapshot_handle));
+        return Err(format!(
+            "[{}:{}]\t\"{:?}\"",
+            file!(),
+            line!(),
+            snapshot_handle
+        ));
     }
 
     let mut process_entry: crate::ffi::ProcessEntry32W =
@@ -66,7 +71,7 @@ pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
     if result == 0 {
         close_handle(snapshot_handle)?;
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut process_entry_array: Vec<crate::ffi::ProcessEntry32W> =
@@ -99,7 +104,7 @@ pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
                     None => {
                         close_handle(snapshot_handle)?;
 
-                        return Err(crate::location!());
+                        return Err(format!("[{}:{}]", file!(), line!()));
                     }
                 }
             },
@@ -112,7 +117,7 @@ pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
 #[unsafe_fn_body]
 pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation, String> {
     if process_name.is_empty() {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let process_name: String = process_name.to_lowercase();
@@ -120,7 +125,12 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
     let snapshot_handle: *mut ::core::ffi::c_void = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as i32 == -1 {
-        return Err(crate::location!(snapshot_handle));
+        return Err(format!(
+            "[{}:{}]\t\"{:?}\"",
+            file!(),
+            line!(),
+            snapshot_handle
+        ));
     }
 
     let mut process_entry: crate::ffi::ProcessEntry32W =
@@ -133,7 +143,7 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
     if result == 0 {
         close_handle(snapshot_handle)?;
 
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let process_entry_name: String = {
@@ -146,7 +156,7 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
             None => {
                 close_handle(snapshot_handle)?;
 
-                return Err(crate::location!());
+                return Err(format!("[{}:{}]", file!(), line!()));
             }
         }
     };
@@ -170,7 +180,7 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
 
             match result.to_str() {
                 Some(some) => some.trim_end_matches('\0').to_string(),
-                None => return Err(crate::location!()),
+                None => return Err(format!("[{}:{}]", file!(), line!())),
             }
         };
 
@@ -189,7 +199,7 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
 
     close_handle(snapshot_handle)?;
 
-    Err(crate::location!())
+    Err(format!("[{}:{}]", file!(), line!()))
 }
 
 #[unsafe_fn_body]
@@ -208,7 +218,7 @@ pub fn nt_get_processes_info() -> Result<Vec<crate::SystemProcessInformation>, S
     );
 
     if result != 0 {
-        return Err(crate::location!(result));
+        return Err(format!("[{}:{}]\t\"{:?}\"", file!(), line!(), result));
     }
 
     let mut system_process_info_array: Vec<crate::ffi::SystemProcessInformation> =
@@ -255,7 +265,7 @@ pub fn nt_get_processes_info() -> Result<Vec<crate::SystemProcessInformation>, S
 
                 match result.to_str() {
                     Some(some) => some.trim_end_matches('\0').to_string(),
-                    None => return Err(crate::location!()),
+                    None => return Err(format!("[{}:{}]", file!(), line!())),
                 }
             },
             base_priority_class: spi.base_priority,
@@ -282,7 +292,7 @@ pub fn nt_get_processes_info() -> Result<Vec<crate::SystemProcessInformation>, S
 #[unsafe_fn_body]
 pub fn alloc_console() -> Result<(), String> {
     if crate::ffi::AllocConsole() == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -296,7 +306,7 @@ pub fn alloc_console_unchecked() -> i32 {
 #[unsafe_fn_body]
 pub fn free_console() -> Result<(), String> {
     if crate::ffi::FreeConsole() == 0 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
@@ -312,17 +322,17 @@ pub fn set_console_mode(standard_handle: u32, console_mode: u32) -> Result<(), S
     let standard_handle: *mut ::core::ffi::c_void = crate::ffi::GetStdHandle(standard_handle);
 
     if standard_handle as isize == -1 {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     let mut current_console_mode: u32 = 0;
 
     if 0 == crate::ffi::GetConsoleMode(standard_handle, &mut current_console_mode) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     if 0 == crate::ffi::SetConsoleMode(standard_handle, current_console_mode | console_mode) {
-        return Err(crate::location!());
+        return Err(format!("[{}:{}]", file!(), line!()));
     }
 
     Ok(())
