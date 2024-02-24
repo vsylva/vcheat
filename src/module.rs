@@ -1,6 +1,4 @@
-use unsafe_fn_body::unsafe_fn_body;
-
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void =
         crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, process_id);
@@ -69,7 +67,7 @@ pub fn get_modules_info(process_id: u32) -> Result<Vec<crate::ModuleInformation>
     Ok(module_info_array)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_module_info(
     process_id: u32,
     module_name: &str,
@@ -174,7 +172,7 @@ pub fn get_module_info(
     Err(format!("[{}:{}]", file!(), line!()))
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_path.is_empty() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -207,7 +205,7 @@ pub fn load_library(dll_path: &str) -> Result<*mut ::core::ffi::c_void, String> 
     Ok(module_handle)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, String> {
     if dll_name.is_empty() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -238,7 +236,7 @@ pub fn load_system_library(dll_name: &str) -> Result<*mut ::core::ffi::c_void, S
     load_library(&dll_path)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if module_handle.is_null() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -251,7 +249,7 @@ pub fn free_library(module_handle: *mut ::core::ffi::c_void) -> Result<(), Strin
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn free_library_exit_thread(
     module_handle: *mut ::core::ffi::c_void,
     exit_code: u32,
@@ -266,7 +264,7 @@ pub fn free_library_exit_thread(
     ))
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_proc_address(
     module_handle: *mut ::core::ffi::c_void,
     proc_name: &str,
@@ -293,7 +291,7 @@ pub fn get_proc_address(
     Ok(proc_address)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> Result<(), String> {
     if process_handle.is_null() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -389,7 +387,7 @@ pub fn inject_dll(process_handle: *mut ::core::ffi::c_void, dll_path: &str) -> R
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn eject_dll(
     process_handle: *mut ::core::ffi::c_void,
     module_handle: *mut ::core::ffi::c_void,

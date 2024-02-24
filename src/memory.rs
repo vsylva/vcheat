@@ -1,6 +1,4 @@
-use unsafe_fn_body::unsafe_fn_body;
-
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn read_process_memory(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
@@ -87,7 +85,7 @@ pub fn read_process_memory(
     Ok(buffer)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn read_process_memory_unchecked(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,
@@ -106,7 +104,7 @@ pub fn read_process_memory_unchecked(
     buffer
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn write_process_memory<T>(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
@@ -191,7 +189,7 @@ pub fn write_process_memory<T>(
     Ok(number_of_bytes_written)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn write_process_memory_unchecked<T>(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
@@ -206,7 +204,7 @@ pub fn write_process_memory_unchecked<T>(
     );
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn aob_scan_single_threaded(
     pattern: &str,
     data: &[u8],
@@ -293,7 +291,7 @@ pub fn aob_scan_single_threaded(
     Ok(Some(offset_array))
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn aob_scan_multi_threaded(
     pattern: &str,
     data: &[u8],
@@ -472,7 +470,7 @@ pub fn aob_scan_multi_threaded(
     Ok(result)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn rust_alloc(size: usize) -> Result<*mut u8, String> {
     let layout: ::std::alloc::Layout =
         ::std::alloc::Layout::from_size_align(size, ::std::mem::size_of::<u8>())
@@ -487,7 +485,7 @@ pub fn rust_alloc(size: usize) -> Result<*mut u8, String> {
     Ok(allocated_address)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn rust_free(address: *mut u8, size: usize) -> Result<(), String> {
     if address.is_null() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -502,7 +500,7 @@ pub fn rust_free(address: *mut u8, size: usize) -> Result<(), String> {
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub unsafe fn virtual_alloc(
     address: *mut ::core::ffi::c_void,
     size: usize,
@@ -518,7 +516,7 @@ pub unsafe fn virtual_alloc(
     Ok(allocated_address)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub unsafe fn virtual_free(
     address: *mut ::core::ffi::c_void,
     mut size: usize,
@@ -539,7 +537,7 @@ pub unsafe fn virtual_free(
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn virtual_alloc_ex(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
@@ -561,7 +559,7 @@ pub fn virtual_alloc_ex(
     Ok(allocated_address)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn virtual_free_ex(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
@@ -587,7 +585,7 @@ pub fn virtual_free_ex(
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn virtual_query(
     process_handle: *mut ::core::ffi::c_void,
     address: *mut ::core::ffi::c_void,
@@ -627,7 +625,7 @@ pub fn virtual_query(
     Ok(memory_info)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn virtual_protect(
     process_handle: *mut ::core::ffi::c_void,
     address: *const ::core::ffi::c_void,

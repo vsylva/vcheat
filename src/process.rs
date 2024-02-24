@@ -1,5 +1,3 @@
-use unsafe_fn_body::unsafe_fn_body;
-
 #[unsafe_fn_body::unsafe_fn_body]
 pub fn open_process(process_id: u32) -> Result<*mut ::core::ffi::c_void, String> {
     let process_handle: *mut ::core::ffi::c_void = crate::ffi::OpenProcess(0x1F0FFF, 0, process_id);
@@ -11,7 +9,7 @@ pub fn open_process(process_id: u32) -> Result<*mut ::core::ffi::c_void, String>
     Ok(process_handle)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn close_handle(handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     if handle.is_null() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -26,12 +24,12 @@ pub fn close_handle(handle: *mut ::core::ffi::c_void) -> Result<(), String> {
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn close_handle_unchecked(handle: *mut ::core::ffi::c_void) -> i32 {
     crate::ffi::CloseHandle(handle)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn is_wow64_process(process_handle: *mut ::core::ffi::c_void) -> Result<bool, String> {
     if process_handle.is_null() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -48,7 +46,7 @@ pub fn is_wow64_process(process_handle: *mut ::core::ffi::c_void) -> Result<bool
     Ok(is_wow64 != 0)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
     let snapshot_handle: *mut ::core::ffi::c_void = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
@@ -114,7 +112,7 @@ pub fn get_processes_info() -> Result<Vec<crate::ProcessInformation>, String> {
     Ok(process_info_array)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation, String> {
     if process_name.is_empty() {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -202,7 +200,7 @@ pub fn get_process_info(process_name: &str) -> Result<crate::ProcessInformation,
     Err(format!("[{}:{}]", file!(), line!()))
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn nt_get_processes_info() -> Result<Vec<crate::SystemProcessInformation>, String> {
     let mut return_length: u32 = 0;
 
@@ -289,7 +287,7 @@ pub fn nt_get_processes_info() -> Result<Vec<crate::SystemProcessInformation>, S
     Ok(nt_system_process_info_array)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn alloc_console() -> Result<(), String> {
     if crate::ffi::AllocConsole() == 0 {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -298,12 +296,12 @@ pub fn alloc_console() -> Result<(), String> {
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn alloc_console_unchecked() -> i32 {
     crate::ffi::AllocConsole()
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn free_console() -> Result<(), String> {
     if crate::ffi::FreeConsole() == 0 {
         return Err(format!("[{}:{}]", file!(), line!()));
@@ -312,12 +310,12 @@ pub fn free_console() -> Result<(), String> {
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn free_console_unchecked() -> i32 {
     crate::ffi::FreeConsole()
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn set_console_mode(standard_handle: u32, console_mode: u32) -> Result<(), String> {
     let standard_handle: *mut ::core::ffi::c_void = crate::ffi::GetStdHandle(standard_handle);
 
@@ -338,7 +336,7 @@ pub fn set_console_mode(standard_handle: u32, console_mode: u32) -> Result<(), S
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn set_console_colors() -> Result<(), String> {
     set_console_mode(
         crate::consts::standard_handle::OUTPUT_HANDLE,

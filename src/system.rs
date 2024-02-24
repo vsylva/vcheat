@@ -1,6 +1,4 @@
-use unsafe_fn_body::unsafe_fn_body;
-
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_system_info() -> crate::SystemInfomaion {
     let mut system_info: crate::ffi::SystemInfo = ::core::mem::zeroed::<crate::ffi::SystemInfo>();
 
@@ -68,7 +66,7 @@ unsafe fn get_string_by_dmi(
     Ok(result)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_dmi_info() -> Result<crate::DmiInformation, String> {
     let signature = u32::from_be_bytes(*b"RSMB");
 
@@ -259,7 +257,7 @@ pub fn get_dmi_info() -> Result<crate::DmiInformation, String> {
     Ok(dmi_info)
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
     let mut buffer: Vec<u16> =
         ::std::os::windows::prelude::OsStrExt::encode_wide(::std::ffi::OsStr::new(text))
@@ -308,7 +306,7 @@ pub fn set_clipboard_unicode_text(text: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[unsafe_fn_body]
+#[unsafe_fn_body::unsafe_fn_body]
 pub fn get_clipboard_unicode_text() -> Result<String, String> {
     if crate::ffi::OpenClipboard(::core::ptr::null_mut()) == 0 {
         return Err(format!("[{}:{}]", file!(), line!()));
