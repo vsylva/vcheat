@@ -283,6 +283,8 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
 
     let len = buf.len() * ::core::mem::size_of::<u16>();
 
+    let proc_name = b"LoadLibraryW\0";
+
     let proc = crate::ffi::GetProcAddress(
         crate::ffi::GetModuleHandleW(
             String::from("kernel32.dll\0")
@@ -291,7 +293,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
                 .as_ptr()
                 .cast(),
         ),
-        c"LoadLibraryW".as_ptr(),
+        proc_name.as_ptr().cast(),
     );
 
     if proc.is_null() {
@@ -350,12 +352,12 @@ pub unsafe fn eject_dll(
     mod_handle: HMODULE,
     should_exit_thread: bool,
 ) -> Result<(), ::std::io::Error> {
-    let cs: &::core::ffi::CStr;
+    let cs: &'static str;
 
     if should_exit_thread {
-        cs = c"FreeLibraryAndExitThread";
+        cs = "FreeLibraryAndExitThread\0";
     } else {
-        cs = c"FreeLibrary";
+        cs = "FreeLibrary\0";
     }
 
     let proc = crate::ffi::GetProcAddress(
@@ -366,7 +368,7 @@ pub unsafe fn eject_dll(
                 .as_ptr()
                 .cast(),
         ),
-        cs.as_ptr(),
+        cs.as_ptr().cast(),
     );
 
     let th = crate::ffi::CreateRemoteThread(
