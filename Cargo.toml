@@ -1,9 +1,9 @@
 [package]
 name = "vcheat"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["vSylva"]
 edition = "2021"
-description = "Rust Language Game Hacking Library"
+description = "Hacking Library"
 readme = "README.md"
 license = "MIT"
 repository = "https://github.com/vSylva/vcheat"
@@ -11,6 +11,3 @@ repository = "https://github.com/vSylva/vcheat"
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
 targets = ["x86_64-pc-windows-msvc", "i686-pc-windows-msvc"]
-
-[dependencies]
-unsafe_fn_body = "0.1.0"

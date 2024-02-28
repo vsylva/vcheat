@@ -1,188 +1,147 @@
-#[link(name = "kernel32")]
+use crate::{BOOL, HANDLE, HMODULE};
 
+#[link(name = "Psapi")]
+extern "system" {
+    pub(crate) fn GetModuleInformation(
+        hProcess: HANDLE,
+        hModule: HMODULE,
+        lpmodinfo: *mut MODULEINFO,
+        cb: u32,
+    ) -> i32;
+}
+
+#[link(name = "Kernel32")]
 extern "system" {
 
-    pub(crate) fn WaitForSingleObject(
-        hHandle: *mut ::core::ffi::c_void,
-        dwMilliseconds: u32,
-    ) -> u32;
+    pub(crate) fn GetExitCodeThread(hThread: HANDLE, lpExitCode: *mut u32) -> BOOL;
+
+    pub(crate) fn GetCurrentProcess() -> HANDLE;
+
+    pub(crate) fn GetModuleHandleW(lpModuleName: *const u16) -> HMODULE;
+
+    pub(crate) fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: u32) -> u32;
 
     pub(crate) fn CreateRemoteThread(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpThreadAttributes: *const SecurityAttributes,
         dwStackSize: usize,
         lpStartAddress: LpthreadStartRoutine,
         lpParameter: *const ::core::ffi::c_void,
         dwCreationFlags: u32,
         lpThreadId: *mut u32,
-    ) -> *mut ::core::ffi::c_void;
-
-    pub(crate) fn IsWow64Process(hProcess: *mut ::core::ffi::c_void, Wow64Process: *mut i32)
-        -> i32;
+    ) -> HANDLE;
 
     pub(crate) fn OpenProcess(
         dwDesiredAccess: u32,
-        bInheritHandle: i32,
+        bInheritHandle: BOOL,
         dwProcessId: u32,
-    ) -> *mut ::core::ffi::c_void;
+    ) -> HANDLE;
 
-    pub(crate) fn CloseHandle(hObject: *mut ::core::ffi::c_void) -> i32;
+    pub(crate) fn CloseHandle(hObject: HANDLE) -> BOOL;
 
-    pub(crate) fn GetSystemInfo(lpSystemInfo: *mut SystemInfo);
+    pub(crate) fn CreateToolhelp32Snapshot(dwFlags: u32, th32ProcessID: u32) -> HANDLE;
 
-    pub(crate) fn CreateToolhelp32Snapshot(
-        dwFlags: u32,
-        th32ProcessID: u32,
-    ) -> *mut ::core::ffi::c_void;
+    pub(crate) fn Process32FirstW(hSnapshot: HANDLE, lppe: *mut ProcessEntry32W) -> BOOL;
 
-    pub(crate) fn Process32FirstW(
-        hSnapshot: *mut ::core::ffi::c_void,
-        lppe: *mut ProcessEntry32W,
-    ) -> i32;
+    pub(crate) fn Process32NextW(hSnapshot: HANDLE, lppe: *mut ProcessEntry32W) -> BOOL;
 
-    pub(crate) fn Process32NextW(
-        hSnapshot: *mut ::core::ffi::c_void,
-        lppe: *mut ProcessEntry32W,
-    ) -> i32;
+    pub(crate) fn Module32FirstW(hSnapshot: HANDLE, lpme: *mut ModuleEntry32W) -> BOOL;
 
-    pub(crate) fn Module32FirstW(
-        hSnapshot: *mut ::core::ffi::c_void,
-        lpme: *mut ModuleEntry32W,
-    ) -> i32;
-
-    pub(crate) fn Module32NextW(
-        hSnapshot: *mut ::core::ffi::c_void,
-        lpme: *mut ModuleEntry32W,
-    ) -> i32;
+    pub(crate) fn Module32NextW(hSnapshot: HANDLE, lpme: *mut ModuleEntry32W) -> BOOL;
 
     pub(crate) fn VirtualProtectEx(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpAddress: *const ::core::ffi::c_void,
         dwSize: usize,
         flNewProtect: u32,
         lpflOldProtect: *mut u32,
-    ) -> i32;
+    ) -> BOOL;
 
     pub(crate) fn VirtualQueryEx(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpAddress: *const ::core::ffi::c_void,
         lpBuffer: *mut MemoryBasicInformation,
         dwLength: usize,
     ) -> usize;
 
-    pub(crate) fn VirtualAlloc(
-        lpAddress: *mut ::core::ffi::c_void,
-        dwSize: usize,
-        flAllocationType: u32,
-        flProtect: u32,
-    ) -> *mut ::core::ffi::c_void;
-
     pub(crate) fn VirtualAllocEx(
-        hProcess: *mut ::core::ffi::c_void,
-        lpAddress: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
+        lpAddress: *const ::core::ffi::c_void,
         dwSize: usize,
         flAllocationType: u32,
         flProtect: u32,
     ) -> *mut ::core::ffi::c_void;
 
     pub(crate) fn VirtualFreeEx(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpAddress: *mut ::core::ffi::c_void,
         dwSize: usize,
         dwFreeType: u32,
-    ) -> i32;
-
-    pub(crate) fn VirtualFree(
-        lpAddress: *mut ::core::ffi::c_void,
-        dwSize: usize,
-        dwFreeType: u32,
-    ) -> i32;
+    ) -> BOOL;
 
     pub(crate) fn ReadProcessMemory(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpBaseAddress: *const ::core::ffi::c_void,
         lpBuffer: *mut ::core::ffi::c_void,
         nSize: usize,
         lpNumberOfBytesRead: *mut usize,
-    ) -> i32;
+    ) -> BOOL;
 
     pub(crate) fn WriteProcessMemory(
-        hProcess: *mut ::core::ffi::c_void,
+        hProcess: HANDLE,
         lpBaseAddress: *const ::core::ffi::c_void,
         lpBuffer: *const ::core::ffi::c_void,
         nSize: usize,
         lpNumberOfBytesWritten: *mut usize,
-    ) -> i32;
+    ) -> BOOL;
 
-    pub(crate) fn GetSystemFirmwareTable(
-        FirmwareTableProviderSignature: u32,
-        FirmwareTableID: u32,
-        pFirmwareTableBuffer: *mut u8,
-        BufferSize: u32,
-    ) -> u32;
+    pub(crate) fn SetConsoleMode(hConsoleHandle: HANDLE, dwMode: u32) -> i32;
 
-    pub(crate) fn GetSystemDirectoryW(lpBuffer: *mut u16, uSize: u32) -> u32;
+    pub(crate) fn GetStdHandle(nStdHandle: u32) -> HANDLE;
 
-    pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> *mut ::core::ffi::c_void;
+    pub(crate) fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *mut u32) -> i32;
 
-    pub(crate) fn FreeLibrary(hLibModule: *mut ::core::ffi::c_void) -> i32;
-
-    pub(crate) fn FreeLibraryAndExitThread(hLibModule: *mut ::core::ffi::c_void, dwExitCode: u32);
+    pub(crate) fn GetProcAddress(
+        hModule: HMODULE,
+        lpProcName: *const i8,
+    ) -> *mut ::core::ffi::c_void;
 
     pub(crate) fn AllocConsole() -> i32;
 
     pub(crate) fn FreeConsole() -> i32;
 
-    pub(crate) fn SetConsoleMode(hConsoleHandle: *mut ::core::ffi::c_void, dwMode: u32) -> i32;
-
-    pub(crate) fn GetStdHandle(nStdHandle: u32) -> *mut ::core::ffi::c_void;
-
-    pub(crate) fn GetConsoleMode(hConsoleHandle: *mut ::core::ffi::c_void, lpMode: *mut u32)
-        -> i32;
-
-    pub(crate) fn GetProcAddress(
-        hModule: *mut ::core::ffi::c_void,
-        lpProcName: *const i8,
+    // internal
+    pub(crate) fn VirtualAlloc(
+        lpAddress: *const ::core::ffi::c_void,
+        dwSize: usize,
+        flAllocationType: u32,
+        flProtect: u32,
     ) -> *mut ::core::ffi::c_void;
 
-    pub(crate) fn GlobalAlloc(uFlags: u32, dwBytes: usize) -> *mut ::core::ffi::c_void;
+    pub(crate) fn VirtualFree(
+        lpAddress: *mut ::core::ffi::c_void,
+        dwSize: usize,
+        dwFreeType: u32,
+    ) -> BOOL;
 
-    pub(crate) fn GlobalLock(hMem: *mut ::core::ffi::c_void) -> *mut ::core::ffi::c_void;
+    pub(crate) fn VirtualQuery(
+        lpAddress: *const ::core::ffi::c_void,
+        lpBuffer: *mut MemoryBasicInformation,
+        dwLength: usize,
+    ) -> usize;
 
-    pub(crate) fn GlobalUnlock(hMem: *mut ::core::ffi::c_void) -> i32;
+    pub(crate) fn VirtualProtect(
+        lpAddress: *const ::core::ffi::c_void,
+        dwSize: usize,
+        flNewProtect: u32,
+        lpflOldProtect: *mut u32,
+    ) -> BOOL;
 
-    pub(crate) fn GlobalFree(hMem: *mut ::core::ffi::c_void) -> *mut ::core::ffi::c_void;
+    pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> HMODULE;
 
-}
+    pub(crate) fn FreeLibrary(hLibModule: HMODULE) -> BOOL;
 
-#[link(name = "user32")]
-extern "system" {
-
-    pub(crate) fn OpenClipboard(hWndNewOwner: *mut ::core::ffi::c_void) -> i32;
-
-    pub(crate) fn EmptyClipboard() -> i32;
-
-    pub(crate) fn CloseClipboard() -> i32;
-
-    pub(crate) fn GetClipboardData(uFormat: u32) -> *mut ::core::ffi::c_void;
-
-    pub(crate) fn SetClipboardData(
-        uFormat: u32,
-        hMem: *mut ::core::ffi::c_void,
-    ) -> *mut ::core::ffi::c_void;
-}
-
-#[link(name = "ntdll")]
-
-extern "system" {
-
-    pub(crate) fn NtQuerySystemInformation(
-        SystemInformationClass: i32,
-        SystemInformation: *mut ::core::ffi::c_void,
-        SystemInformationLength: u32,
-        ReturnLength: *mut u32,
-    ) -> i32;
-
+    pub(crate) fn FreeLibraryAndExitThread(hLibModule: HMODULE, dwExitCode: u32) -> !;
 }
 
 pub(crate) type LpthreadStartRoutine =
@@ -190,7 +149,6 @@ pub(crate) type LpthreadStartRoutine =
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
 pub(crate) struct SecurityAttributes {
     pub(crate) n_length: u32,
     pub(crate) lp_security_descriptor: *const ::core::ffi::c_void,
@@ -199,7 +157,6 @@ pub(crate) struct SecurityAttributes {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
 pub(crate) struct ProcessEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) cnt_usage: u32,
@@ -215,61 +172,21 @@ pub(crate) struct ProcessEntry32W {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
 pub(crate) struct ModuleEntry32W {
     pub(crate) dw_size: u32,
     pub(crate) th32_module_id: u32,
     pub(crate) th32_process_id: u32,
-    pub(crate) glblcnt_usage: u32,
-    pub(crate) proccnt_usage: u32,
+    pub(crate) glbl_cnt_usage: u32,
+    pub(crate) proc_cnt_usage: u32,
     pub(crate) mod_base_addr: *mut u8,
     pub(crate) mod_base_size: u32,
-    pub(crate) h_module: *mut ::core::ffi::c_void,
+    pub(crate) h_module: HMODULE,
     pub(crate) sz_module: [u16; 256],
     pub(crate) sz_exe_path: [u16; 260],
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
-pub(crate) struct SystemProcessInformation {
-    pub(crate) next_entry_offset: u32,
-    pub(crate) number_of_threads: u32,
-    pub(crate) reserved1: [u8; 48],
-    pub(crate) image_name: UnicodeString,
-    pub(crate) base_priority: i32,
-    pub(crate) unique_process_id: isize,
-    pub(crate) reserved2: *mut ::core::ffi::c_void,
-    pub(crate) handle_count: u32,
-    pub(crate) session_id: u32,
-    pub(crate) reserved3: *mut ::core::ffi::c_void,
-    pub(crate) peak_virtual_size: usize,
-    pub(crate) virtual_size: usize,
-    pub(crate) reserved4: u32,
-    pub(crate) peak_working_set_size: usize,
-    pub(crate) working_set_size: usize,
-    pub(crate) reserved5: *mut ::core::ffi::c_void,
-    pub(crate) quota_paged_pool_usage: usize,
-    pub(crate) reserved6: *mut ::core::ffi::c_void,
-    pub(crate) quota_non_paged_pool_usage: usize,
-    pub(crate) pagefile_usage: usize,
-    pub(crate) peak_pagefile_usage: usize,
-    pub(crate) private_page_count: usize,
-    pub(crate) reserved7: [i64; 6],
-}
-
-#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
-pub(crate) struct UnicodeString {
-    pub(crate) length: u16,
-    pub(crate) maximum_length: u16,
-    pub(crate) buffer: *mut u16,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
 pub(crate) struct MemoryBasicInformation {
     pub(crate) base_address: *mut ::core::ffi::c_void,
     pub(crate) allocation_base: *mut ::core::ffi::c_void,
@@ -283,51 +200,9 @@ pub(crate) struct MemoryBasicInformation {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
-pub(crate) struct SystemInfo {
-    pub(crate) dummy_union: SystemInfoDummyUnion,
-    pub(crate) dw_page_size: u32,
-    pub(crate) lp_minimum_application_address: *mut ::core::ffi::c_void,
-    pub(crate) lp_maximum_application_address: *mut ::core::ffi::c_void,
-    pub(crate) dw_active_processor_mask: usize,
-    pub(crate) dw_number_of_processors: u32,
-    pub(crate) dw_processor_type: u32,
-    pub(crate) dw_allocation_granularity: u32,
-    pub(crate) w_processor_level: u16,
-    pub(crate) w_processor_revision: u16,
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub(crate) union SystemInfoDummyUnion {
-    pub(crate) dw_oem_id: u32,
-    pub(crate) dummy_struct: SystemInfoDummyStruct,
-}
-
-#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct SystemInfoDummyStruct {
-    pub(crate) w_processor_architecture: u16,
-    pub(crate) w_reserved: u16,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
-pub(crate) struct RawSMBIOSData {
-    pub(crate) used20_calling_method: u8,
-    pub(crate) smbiosmajor_version: u8,
-    pub(crate) smbiosminor_version: u8,
-    pub(crate) dmi_revision: u8,
-    pub(crate) length: u32,
-    pub(crate) smbiostable_data: Vec<u8>,
-}
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-
-pub(crate) struct DmiHeader {
-    pub(crate) type_: u8,
-    pub(crate) length: u8,
-    pub(crate) handle: u16,
+pub(crate) struct MODULEINFO {
+    pub(crate) lp_base_of_dll: *mut ::core::ffi::c_void,
+    pub(crate) size_of_image: u32,
+    pub(crate) entry_point: *mut core::ffi::c_void,
 }

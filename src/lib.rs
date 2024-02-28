@@ -1,101 +1,402 @@
-#![doc = "[![Crates.io](https://img.shields.io/crates/v/vcheat)](https://crates.io/crates/vcheat)
+#![doc = r#"
+[![Crates.io Version](https://img.shields.io/crates/v/vcheat?style=for-the-badge)](https://crates.io/crates/vcheat)
+[![Static Badge](https://img.shields.io/badge/Github-vcheat-green?style=for-the-badge)](https://github.com/vSylva/vcheat/)
 
-Rust Language Game Hacking Library
-```c
-// https://github.com/vSylva/vcheat/tree/main/examples
-cargo run --example
-```"]
+Hacking Library
 
-pub mod consts;
+```rust
+// tests/external.rs
+
+#[test]
+fn get_pid() {
+    unsafe {
+        vcheat::external::get_pid("explorer.exe").unwrap();
+    }
+}
+
+#[test]
+fn get_all_proc_info() {
+    unsafe {
+        vcheat::external::get_all_proc_info().unwrap();
+    }
+}
+
+#[test]
+fn get_mod_info() {
+    unsafe {
+        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
+    }
+}
+
+#[test]
+fn get_all_mod_info() {
+    unsafe {
+        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        vcheat::external::get_all_mod_info(proc_id).unwrap();
+    }
+}
+
+#[test]
+fn read_write_mem() {
+    unsafe {
+        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        let (mod_handle, mod_addr, mod_size) =
+            vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(proc_id).unwrap();
+
+        vcheat::external::protect_mem(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            mod_size as usize,
+            vcheat::page_prot_ty::READ_WRITE,
+        )
+        .unwrap();
+
+        let mod_data = vcheat::read_mem(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            mod_size as usize,
+        )
+        .unwrap();
+
+        let bnw = vcheat::write_mem(proc_handle, mod_addr.cast(), &mod_data).unwrap();
+
+        assert_eq!(mod_size as usize, bnw);
+
+        vcheat::close_handle(proc_handle).unwrap();
+    }
+}
+
+#[test]
+fn inject_dll() {
+    unsafe {
+        let pid = vcheat::external::get_pid("test.exe").unwrap();
+        let proc_handle = vcheat::external::open_proc(pid).unwrap();
+        vcheat::external::inject_dll(proc_handle, r"test.dll").unwrap();
+        vcheat::close_handle(proc_handle).unwrap();
+    }
+}
+
+#[test]
+fn eject_dll() {
+    unsafe {
+        let pid = vcheat::external::get_pid("test.exe").unwrap();
+        let proc_handle = vcheat::external::open_proc(pid).unwrap();
+        let (mod_handle, _, _) = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
+        vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
+        vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
+        vcheat::close_handle(proc_handle).unwrap();
+    }
+}
+```
+"#]
+
+mod common;
+pub mod external;
 mod ffi;
-pub mod memory;
-pub mod module;
-pub mod process;
-pub mod system;
+pub mod internal;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SystemInfomaion {
-    pub processor_architecture: u16,
-    pub reserved: u16,
-    pub page_size: u32,
-    pub minimum_application_address: *mut ::core::ffi::c_void,
-    pub maximum_application_address: *mut ::core::ffi::c_void,
-    pub active_processor_mask: usize,
-    pub number_of_processors: u32,
-    pub processor_type: u32,
-    pub allocation_granularity: u32,
-    pub processor_level: u16,
-    pub processor_revision: u16,
+type HMODULE = isize;
+type HANDLE = isize;
+type BOOL = i32;
+
+pub mod page_prot_ty {
+    pub const ENCLAVE_DECOMMIT: u32 = 0x1000_0000;
+
+    pub const ENCLAVE_THREAD_CONTROL: u32 = 0x8000_0000;
+
+    pub const ENCLAVE_UNVALIDATED: u32 = 0x2000_0000;
+
+    pub const EXECUTE: u32 = 0x10;
+
+    pub const EXECUTE_READ: u32 = 0x20;
+
+    pub const EXECUTE_READ_WRITE: u32 = 0x40;
+
+    pub const EXECUTE_WRITECOPY: u32 = 0x80;
+
+    pub const GUARD: u32 = 0x100;
+
+    pub const NOACCESS: u32 = 0x01;
+
+    pub const NOCACHE: u32 = 0x200;
+
+    pub const READONLY: u32 = 0x02;
+
+    pub const READ_WRITE: u32 = 0x04;
+
+    pub const TARGETS_INVALID: u32 = 0x4000_0000;
+
+    pub const TARGETS_NO_UPDATE: u32 = 0x4000_0000;
+
+    pub const WRITECOMBINE: u32 = 0x400;
+
+    pub const WRITECOPY: u32 = 0x08;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub mod mem_alloc_ty {
+    pub const COMMIT: u32 = 0x0000_1000;
 
-pub struct ProcessInformation {
-    pub id: u32,
-    pub thread_count: u32,
-    pub parent_process_id: u32,
-    pub base_priority_class: i32,
-    pub name: String,
+    pub const LARGE_PAGES: u32 = 0x2000_0000;
+
+    pub const PHYSICAL: u32 = 0x0040_0000;
+
+    pub const RESERVE: u32 = 0x0000_2000;
+
+    pub const RESET: u32 = 0x0008_0000;
+
+    pub const RESET_UNDO: u32 = 0x0100_0000;
+
+    pub const TOP_DOWN: u32 = 0x0010_0000;
+
+    pub const WRITE_WATCH: u32 = 0x0020_0000;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub mod mem_free_ty {
+    pub const COALESCE_PLACEHOLDERS: u32 = 0x0000_0001;
 
-pub struct SystemProcessInformation {
-    pub thread_count: u32,
-    pub name: String,
-    pub base_priority_class: i32,
-    pub id: isize,
-    pub handle_count: u32,
-    pub session_id: u32,
-    pub peak_virtual_size: usize,
-    pub virtual_size: usize,
-    pub peak_working_set_size: usize,
-    pub working_set_size: usize,
-    pub quota_paged_pool_usage: usize,
-    pub quota_non_paged_pool_usage: usize,
-    pub pagefile_usage: usize,
-    pub peak_pagefile_usage: usize,
-    pub private_page_count: usize,
+    pub const DECOMMIT: u32 = 0x0000_4000;
+
+    pub const PRESERVE_PLACEHOLDER: u32 = 0x0000_0002;
+
+    pub const RELEASE: u32 = 0x00008000;
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[inline]
 
-pub struct ModuleInformation {
-    pub process_id: u32,
-    pub base_address: *mut u8,
-    pub size: u32,
-    pub handle: *mut ::core::ffi::c_void,
-    pub name: String,
-    pub path: String,
+pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
+    if 0 == crate::ffi::CloseHandle(handle) {
+        return Err(::std::io::Error::last_os_error());
+    };
+
+    Ok(())
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MemoryInformation {
-    pub base_address: *mut ::core::ffi::c_void,
-    pub allocation_base_address: *mut ::core::ffi::c_void,
-    pub allocation_protect: u32,
-    #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-    pub partition_id: u16,
-    pub region_size: usize,
-    pub state: u32,
-    pub page_protect: u32,
-    pub type_: u32,
+#[doc = r#"Return value: `Offset`
+
+Author: **sonodima**
+
+<https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
+<https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>"#]
+pub unsafe fn pat_find(pat: &str, data: &[u8]) -> Result<usize, ::std::io::Error> {
+    let mut sig: Vec<u8> = Vec::<u8>::new();
+
+    let mut mask: Vec<bool> = Vec::<bool>::new();
+
+    for pair in pat.split_whitespace() {
+        if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
+            mask.push(false);
+
+            sig.push(0);
+        } else {
+            let num: u8 =
+                u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
+
+            mask.push(true);
+
+            sig.push(num);
+        }
+    }
+
+    let mut start_offset: usize = mask.iter().take_while(|x| **x == false).count();
+
+    let end_offset: usize = mask.iter().rev().take_while(|x| **x == false).count();
+
+    if start_offset != mask.len() {
+        sig = sig[start_offset..sig.len() - end_offset].to_vec();
+
+        mask = mask[start_offset..mask.len() - end_offset].to_vec();
+    } else {
+        start_offset = 0;
+    }
+
+    let first_byte: u8 = sig[0];
+
+    let first_mask: bool = mask[0];
+
+    for i in 0..data.len() - sig.len() {
+        if data[i] != first_byte && first_mask {
+            continue;
+        }
+
+        let data: &[u8] = &data[i..];
+
+        let mut found: bool = true;
+
+        for (i, sig) in sig.iter().enumerate() {
+            if !mask[i] {
+                continue;
+            }
+
+            if data[i] != sig.to_owned() {
+                found = false;
+
+                break;
+            }
+        }
+
+        if found {
+            return Ok(i - start_offset);
+        }
+    }
+
+    Err(::std::io::ErrorKind::NotFound.into())
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[doc = r#"Return value: `Vec<Offset>`
 
-pub struct DmiInformation {
-    pub bios_version: String,
-    pub bios_release_date: String,
-    pub bios_vendor: String,
-    pub bios_embedded_controller_firmware_version: String,
+Author: **sonodima**
 
-    pub system_manufacturer: String,
-    pub system_product: String,
-    pub system_version: String,
-    pub system_serial_number: String,
-    pub system_uuid: ([u8; 16], String),
-    pub system_guid: ([u8; 16], String),
-    pub system_sku_number: String,
-    pub system_family: String,
+<https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
+<https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>"#]
+pub unsafe fn pat_scan(pat: &str, data: &[u8]) -> Result<Vec<usize>, ::std::io::Error> {
+    let mut sig: Vec<u8> = Vec::<u8>::new();
+
+    let mut mask: Vec<bool> = Vec::<bool>::new();
+
+    for pair in pat.split_whitespace() {
+        if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
+            mask.push(false);
+
+            sig.push(0);
+        } else {
+            let num: u8 =
+                u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
+
+            mask.push(true);
+
+            sig.push(num);
+        }
+    }
+
+    let mut start_offset: usize = mask.iter().take_while(|x| **x == false).count();
+
+    let end_offset: usize = mask.iter().rev().take_while(|x| **x == false).count();
+
+    if start_offset != mask.len() {
+        sig = sig[start_offset..sig.len() - end_offset].to_vec();
+
+        mask = mask[start_offset..mask.len() - end_offset].to_vec();
+    } else {
+        start_offset = 0;
+    }
+
+    let first_byte: u8 = sig[0];
+
+    let first_mask: bool = mask[0];
+
+    let mut offset_list: Vec<usize> = Vec::new();
+
+    for i in 0..data.len() - sig.len() {
+        if data[i] != first_byte && first_mask {
+            continue;
+        }
+
+        let data: &[u8] = &data[i..];
+
+        let mut found: bool = true;
+
+        for (i, sig) in sig.iter().enumerate() {
+            if !mask[i] {
+                continue;
+            }
+
+            if data[i] != sig.to_owned() {
+                found = false;
+
+                break;
+            }
+        }
+
+        if found {
+            offset_list.push(i - start_offset);
+        }
+    }
+
+    Ok(offset_list)
+}
+
+#[doc = "Return value: `Vec<u8>`"]
+pub unsafe fn read_mem(
+    proc_handle: HANDLE,
+    addr: *const ::core::ffi::c_void,
+    size: usize,
+) -> Result<Vec<u8>, ::std::io::Error> {
+    let mut buf = vec![0; size];
+
+    let mut num_read: usize = Default::default();
+
+    if 0 == crate::ffi::ReadProcessMemory(
+        proc_handle,
+        addr,
+        buf.as_mut_ptr().cast(),
+        size,
+        &mut num_read,
+    ) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(buf)
+}
+
+#[doc = "Return value: `Bytes num written`"]
+pub unsafe fn write_mem<T>(
+    proc_handle: HANDLE,
+    addr: *const ::core::ffi::c_void,
+    buf: &[T],
+) -> Result<usize, ::std::io::Error> {
+    let mut bnw: usize = 0;
+
+    if 0 == crate::ffi::WriteProcessMemory(
+        proc_handle,
+        addr,
+        buf.as_ptr() as *const ::core::ffi::c_void,
+        ::core::mem::size_of::<T>() * buf.len(),
+        &mut bnw,
+    ) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(bnw)
+}
+
+pub unsafe fn alloc_console() -> Result<(), ::std::io::Error> {
+    if 0 == ffi::AllocConsole() {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(())
+}
+
+pub unsafe fn free_console() -> Result<(), ::std::io::Error> {
+    if 0 == ffi::FreeConsole() {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(())
+}
+
+pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
+    let handle: HANDLE = ffi::GetStdHandle(0xFFFFFFF5);
+
+    if -1 == handle as isize {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    let mut mode: u32 = 0;
+
+    if 0 == ffi::GetConsoleMode(handle, &mut mode) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    if 0 == ffi::SetConsoleMode(handle, mode | 4) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(())
 }

@@ -1,11 +1,3 @@
-[![Crates.io Version](https://img.shields.io/crates/v/vcheat?style=for-the-badge)](https://crates.io/crates/vcheat)
-[![Static Badge](https://img.shields.io/badge/Github-vcheat-green?style=for-the-badge)](https://github.com/vSylva/vcheat/)
-
-Hacking Library
-
-```rust
-// tests/external.rs
-
 #[test]
 fn get_pid() {
     unsafe {
@@ -92,4 +84,3 @@ fn eject_dll() {
         vcheat::close_handle(proc_handle).unwrap();
     }
 }
-```
