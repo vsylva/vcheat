@@ -7,7 +7,7 @@ extern "system" {
         hModule: HMODULE,
         lpmodinfo: *mut MODULEINFO,
         cb: u32,
-    ) -> i32;
+    ) -> BOOL;
 }
 
 #[link(name = "Kernel32")]
@@ -99,16 +99,16 @@ extern "system" {
 
     pub(crate) fn GetStdHandle(nStdHandle: u32) -> HANDLE;
 
-    pub(crate) fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *mut u32) -> i32;
+    pub(crate) fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *mut u32) -> BOOL;
 
     pub(crate) fn GetProcAddress(
         hModule: HMODULE,
         lpProcName: *const i8,
     ) -> *mut ::core::ffi::c_void;
 
-    pub(crate) fn AllocConsole() -> i32;
+    pub(crate) fn AllocConsole() -> BOOL;
 
-    pub(crate) fn FreeConsole() -> i32;
+    pub(crate) fn FreeConsole() -> BOOL;
 
     // internal
     pub(crate) fn VirtualAlloc(

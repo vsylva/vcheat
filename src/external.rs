@@ -1,6 +1,6 @@
 use crate::{HANDLE, HMODULE};
 
-#[doc = "Return value: `ProcessHandle`"]
+#[doc = "Return value: `Handle`"]
 #[inline]
 pub unsafe fn open_proc(pid: u32) -> Result<HANDLE, ::std::io::Error> {
     let proc_handle = crate::ffi::OpenProcess(0x1F0FFF, 0, pid);
@@ -214,7 +214,7 @@ pub unsafe fn alloc_mem(
     Ok(addr)
 }
 
-#[doc = "If the third parameter is RELEASE, the second parameter must be 0"]
+#[doc = "If the fourth parameter is **RELEASE/0x8000**, the third parameter must be 0"]
 pub unsafe fn free_mem(
     proc_handle: HANDLE,
     addr: *mut ::core::ffi::c_void,

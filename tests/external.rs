@@ -44,7 +44,7 @@ fn read_write_mem() {
             proc_handle,
             mod_handle as *const ::core::ffi::c_void,
             mod_size as usize,
-            vcheat::page_prot_ty::READ_WRITE,
+            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
         )
         .unwrap();
 
@@ -64,11 +64,60 @@ fn read_write_mem() {
 }
 
 #[test]
+fn read_write_mem_t() {
+    unsafe {
+        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        let (mod_handle, _mod_addr, mod_size) =
+            vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(proc_id).unwrap();
+
+        vcheat::external::protect_mem(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            mod_size as usize,
+            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
+        )
+        .unwrap();
+
+        struct Test {
+            _reserved0: u8,
+            _reserved1: i32,
+            _reserved2: [u64; 8],
+        }
+
+        let mut buf = ::core::mem::zeroed::<Test>();
+
+        vcheat::read_mem_t(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            &mut buf,
+            ::core::mem::size_of::<Test>(),
+        )
+        .unwrap();
+
+        vcheat::write_mem_t(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            &buf,
+            ::core::mem::size_of::<Test>(),
+        )
+        .unwrap();
+
+        vcheat::close_handle(proc_handle).unwrap();
+    }
+}
+
+#[test]
 fn inject_dll() {
     unsafe {
         let pid = vcheat::external::get_pid("test.exe").unwrap();
+
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
         vcheat::external::inject_dll(proc_handle, r"test.dll").unwrap();
+
         vcheat::close_handle(proc_handle).unwrap();
     }
 }
@@ -77,10 +126,13 @@ fn inject_dll() {
 fn eject_dll() {
     unsafe {
         let pid = vcheat::external::get_pid("test.exe").unwrap();
+
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
         let (mod_handle, _, _) = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
+
         vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
-        vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
+
         vcheat::close_handle(proc_handle).unwrap();
     }
 }

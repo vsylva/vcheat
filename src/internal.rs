@@ -29,7 +29,7 @@ pub unsafe fn get_mod_handle<S: AsRef<str>>(name: S) -> Result<HMODULE, ::std::i
     Ok(mod_handle)
 }
 
-#[doc = r"Return value: `(Base Address, Size)`"]
+#[doc = r"Return value: `(BaseAddress, Size)`"]
 pub unsafe fn get_mod_info(
     mod_handle: HMODULE,
 ) -> Result<(*mut ::core::ffi::c_void, u32), ::std::io::Error> {
@@ -63,7 +63,7 @@ pub unsafe fn alloc_mem(
     Ok(addr)
 }
 
-#[doc = "If the third parameter is RELEASE, the second parameter must be 0"]
+#[doc = "If the third parameter is **RELEASE/0x8000**, the second parameter must be 0"]
 pub unsafe fn free_mem(
     addr: *mut ::core::ffi::c_void,
     mut size: usize,
@@ -120,7 +120,7 @@ pub unsafe fn protect_mem(
     Ok(prev_prot)
 }
 
-#[doc = "Return value: `Module handle`"]
+#[doc = "Return value: `Handle`"]
 pub unsafe fn load_dll<S: AsRef<str>>(name: S) -> Result<HMODULE, ::std::io::Error> {
     let buf = crate::common::rs_to_cwsb(name.as_ref());
 

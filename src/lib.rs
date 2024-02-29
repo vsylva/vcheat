@@ -53,7 +53,7 @@ fn read_write_mem() {
             proc_handle,
             mod_handle as *const ::core::ffi::c_void,
             mod_size as usize,
-            vcheat::page_prot_ty::READ_WRITE,
+            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
         )
         .unwrap();
 
@@ -73,11 +73,60 @@ fn read_write_mem() {
 }
 
 #[test]
+fn read_write_mem_t() {
+    unsafe {
+        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        let (mod_handle, _mod_addr, mod_size) =
+            vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(proc_id).unwrap();
+
+        vcheat::external::protect_mem(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            mod_size as usize,
+            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
+        )
+        .unwrap();
+
+        struct Test {
+            _reserved0: u8,
+            _reserved1: i32,
+            _reserved2: [u64; 8],
+        }
+
+        let mut buf = ::core::mem::zeroed::<Test>();
+
+        vcheat::read_mem_t(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            &mut buf,
+            ::core::mem::size_of::<Test>(),
+        )
+        .unwrap();
+
+        vcheat::write_mem_t(
+            proc_handle,
+            mod_handle as *const ::core::ffi::c_void,
+            &buf,
+            ::core::mem::size_of::<Test>(),
+        )
+        .unwrap();
+
+        vcheat::close_handle(proc_handle).unwrap();
+    }
+}
+
+#[test]
 fn inject_dll() {
     unsafe {
         let pid = vcheat::external::get_pid("test.exe").unwrap();
+
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
         vcheat::external::inject_dll(proc_handle, r"test.dll").unwrap();
+
         vcheat::close_handle(proc_handle).unwrap();
     }
 }
@@ -86,10 +135,13 @@ fn inject_dll() {
 fn eject_dll() {
     unsafe {
         let pid = vcheat::external::get_pid("test.exe").unwrap();
+
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
         let (mod_handle, _, _) = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
+
         vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
-        vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
+
         vcheat::close_handle(proc_handle).unwrap();
     }
 }
@@ -168,7 +220,6 @@ pub mod mem_free_ty {
 }
 
 #[inline]
-
 pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
     if 0 == crate::ffi::CloseHandle(handle) {
         return Err(::std::io::Error::last_os_error());
@@ -329,14 +380,12 @@ pub unsafe fn read_mem(
 ) -> Result<Vec<u8>, ::std::io::Error> {
     let mut buf = vec![0; size];
 
-    let mut num_read: usize = Default::default();
-
     if 0 == crate::ffi::ReadProcessMemory(
         proc_handle,
         addr,
         buf.as_mut_ptr().cast(),
         size,
-        &mut num_read,
+        ::core::ptr::null_mut(),
     ) {
         return Err(::std::io::Error::last_os_error());
     }
@@ -350,19 +399,67 @@ pub unsafe fn write_mem<T>(
     addr: *const ::core::ffi::c_void,
     buf: &[T],
 ) -> Result<usize, ::std::io::Error> {
-    let mut bnw: usize = 0;
+    let mut bytes_num_written: usize = 0;
 
     if 0 == crate::ffi::WriteProcessMemory(
         proc_handle,
         addr,
         buf.as_ptr() as *const ::core::ffi::c_void,
         ::core::mem::size_of::<T>() * buf.len(),
-        &mut bnw,
+        &mut bytes_num_written,
     ) {
         return Err(::std::io::Error::last_os_error());
     }
 
-    Ok(bnw)
+    Ok(bytes_num_written)
+}
+
+#[doc = r#"Return value: `Bytes num read`
+
+**Supports Generics**"#]
+pub unsafe fn read_mem_t<T>(
+    proc_handle: HANDLE,
+    addr: *const ::core::ffi::c_void,
+    buf: &mut T,
+    size: usize,
+) -> Result<usize, ::std::io::Error> {
+    let mut bytes_num_read: usize = Default::default();
+
+    if 0 == crate::ffi::ReadProcessMemory(
+        proc_handle,
+        addr,
+        buf as *mut T as *mut ::core::ffi::c_void,
+        size,
+        &mut bytes_num_read,
+    ) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(bytes_num_read)
+}
+
+#[doc = r#"Return value: `Bytes num written`
+
+**Supports Generics**"#]
+pub unsafe fn write_mem_t<T>(
+    proc_handle: HANDLE,
+    addr: *const ::core::ffi::c_void,
+    buf: &T,
+    size: usize,
+) -> Result<usize, ::std::io::Error> {
+    let mut bytes_num_written: usize = 0;
+
+    if 0 == crate::ffi::WriteProcessMemory(
+        proc_handle,
+        addr,
+        buf as *const T as *const ::core::ffi::c_void,
+        size,
+        &mut bytes_num_written,
+    ) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(bytes_num_written)
 }
 
 pub unsafe fn alloc_console() -> Result<(), ::std::io::Error> {
@@ -381,6 +478,7 @@ pub unsafe fn free_console() -> Result<(), ::std::io::Error> {
     Ok(())
 }
 
+#[doc = "Make the console support **colored characters**"]
 pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
     let handle: HANDLE = ffi::GetStdHandle(0xFFFFFFF5);
 
