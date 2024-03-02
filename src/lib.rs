@@ -1,223 +1,24 @@
+// #![deny(missing_docs)]
 #![doc = r#"
 [![Crates.io Version](https://img.shields.io/crates/v/vcheat?style=for-the-badge)](https://crates.io/crates/vcheat)
 [![Static Badge](https://img.shields.io/badge/Github-vcheat-green?style=for-the-badge)](https://github.com/vSylva/vcheat/)
-
-Hacking Library
-
-```rust
-// tests/external.rs
-
-#[test]
-fn get_pid() {
-    unsafe {
-        vcheat::external::get_pid("explorer.exe").unwrap();
-    }
-}
-
-#[test]
-fn get_all_proc_info() {
-    unsafe {
-        vcheat::external::get_all_proc_info().unwrap();
-    }
-}
-
-#[test]
-fn get_mod_info() {
-    unsafe {
-        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
-
-        vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
-    }
-}
-
-#[test]
-fn get_all_mod_info() {
-    unsafe {
-        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
-
-        vcheat::external::get_all_mod_info(proc_id).unwrap();
-    }
-}
-
-#[test]
-fn read_write_mem() {
-    unsafe {
-        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
-
-        let (mod_handle, mod_addr, mod_size) =
-            vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(proc_id).unwrap();
-
-        vcheat::external::protect_mem(
-            proc_handle,
-            mod_handle as *const ::core::ffi::c_void,
-            mod_size as usize,
-            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
-        )
-        .unwrap();
-
-        let mod_data = vcheat::read_mem(
-            proc_handle,
-            mod_handle as *const ::core::ffi::c_void,
-            mod_size as usize,
-        )
-        .unwrap();
-
-        let bnw = vcheat::write_mem(proc_handle, mod_addr.cast(), &mod_data).unwrap();
-
-        assert_eq!(mod_size as usize, bnw);
-
-        vcheat::close_handle(proc_handle).unwrap();
-    }
-}
-
-#[test]
-fn read_write_mem_t() {
-    unsafe {
-        let proc_id = vcheat::external::get_pid("explorer.exe").unwrap();
-
-        let (mod_handle, _mod_addr, mod_size) =
-            vcheat::external::get_mod_info(proc_id, "explorer.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(proc_id).unwrap();
-
-        vcheat::external::protect_mem(
-            proc_handle,
-            mod_handle as *const ::core::ffi::c_void,
-            mod_size as usize,
-            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
-        )
-        .unwrap();
-
-        struct Test {
-            _reserved0: u8,
-            _reserved1: i32,
-            _reserved2: [u64; 8],
-        }
-
-        let mut buf = ::core::mem::zeroed::<Test>();
-
-        vcheat::read_mem_t(
-            proc_handle,
-            mod_handle as *const ::core::ffi::c_void,
-            &mut buf,
-            ::core::mem::size_of::<Test>(),
-        )
-        .unwrap();
-
-        vcheat::write_mem_t(
-            proc_handle,
-            mod_handle as *const ::core::ffi::c_void,
-            &buf,
-            ::core::mem::size_of::<Test>(),
-        )
-        .unwrap();
-
-        vcheat::close_handle(proc_handle).unwrap();
-    }
-}
-
-#[test]
-fn inject_dll() {
-    unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(pid).unwrap();
-
-        vcheat::external::inject_dll(proc_handle, r"test.dll").unwrap();
-
-        vcheat::close_handle(proc_handle).unwrap();
-    }
-}
-
-#[test]
-fn eject_dll() {
-    unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(pid).unwrap();
-
-        let (mod_handle, _, _) = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
-
-        vcheat::external::eject_dll(proc_handle, mod_handle, false).unwrap();
-
-        vcheat::close_handle(proc_handle).unwrap();
-    }
-}
-```
 "#]
 
-mod common;
+#[doc = "Commonly used by `.exe`"]
 pub mod external;
-mod ffi;
+
+#[doc = "Commonly used by `.dll`"]
 pub mod internal;
+
+mod common;
+mod ffi;
+
+#[doc = "Module where the constant is located"]
+pub mod types;
 
 type HMODULE = isize;
 type HANDLE = isize;
 type BOOL = i32;
-
-pub mod page_prot_ty {
-    pub const ENCLAVE_DECOMMIT: u32 = 0x1000_0000;
-
-    pub const ENCLAVE_THREAD_CONTROL: u32 = 0x8000_0000;
-
-    pub const ENCLAVE_UNVALIDATED: u32 = 0x2000_0000;
-
-    pub const EXECUTE: u32 = 0x10;
-
-    pub const EXECUTE_READ: u32 = 0x20;
-
-    pub const EXECUTE_READ_WRITE: u32 = 0x40;
-
-    pub const EXECUTE_WRITECOPY: u32 = 0x80;
-
-    pub const GUARD: u32 = 0x100;
-
-    pub const NOACCESS: u32 = 0x01;
-
-    pub const NOCACHE: u32 = 0x200;
-
-    pub const READONLY: u32 = 0x02;
-
-    pub const READ_WRITE: u32 = 0x04;
-
-    pub const TARGETS_INVALID: u32 = 0x4000_0000;
-
-    pub const TARGETS_NO_UPDATE: u32 = 0x4000_0000;
-
-    pub const WRITECOMBINE: u32 = 0x400;
-
-    pub const WRITECOPY: u32 = 0x08;
-}
-
-pub mod mem_alloc_ty {
-    pub const COMMIT: u32 = 0x0000_1000;
-
-    pub const LARGE_PAGES: u32 = 0x2000_0000;
-
-    pub const PHYSICAL: u32 = 0x0040_0000;
-
-    pub const RESERVE: u32 = 0x0000_2000;
-
-    pub const RESET: u32 = 0x0008_0000;
-
-    pub const RESET_UNDO: u32 = 0x0100_0000;
-
-    pub const TOP_DOWN: u32 = 0x0010_0000;
-
-    pub const WRITE_WATCH: u32 = 0x0020_0000;
-}
-
-pub mod mem_free_ty {
-    pub const COALESCE_PLACEHOLDERS: u32 = 0x0000_0001;
-
-    pub const DECOMMIT: u32 = 0x0000_4000;
-
-    pub const PRESERVE_PLACEHOLDER: u32 = 0x0000_0002;
-
-    pub const RELEASE: u32 = 0x00008000;
-}
 
 #[inline]
 pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
@@ -378,7 +179,7 @@ pub unsafe fn read_mem(
     addr: *const ::core::ffi::c_void,
     size: usize,
 ) -> Result<Vec<u8>, ::std::io::Error> {
-    let mut buf = vec![0; size];
+    let mut buf: Vec<u8> = vec![0; size];
 
     if 0 == crate::ffi::ReadProcessMemory(
         proc_handle,
@@ -404,7 +205,7 @@ pub unsafe fn write_mem<T>(
     if 0 == crate::ffi::WriteProcessMemory(
         proc_handle,
         addr,
-        buf.as_ptr() as *const ::core::ffi::c_void,
+        buf.as_ptr().cast(),
         ::core::mem::size_of::<T>() * buf.len(),
         &mut bytes_num_written,
     ) {
@@ -420,18 +221,13 @@ pub unsafe fn write_mem<T>(
 pub unsafe fn read_mem_t<T>(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
-    buf: &mut T,
+    buf: *mut T,
     size: usize,
 ) -> Result<usize, ::std::io::Error> {
-    let mut bytes_num_read: usize = Default::default();
+    let mut bytes_num_read: usize = 0;
 
-    if 0 == crate::ffi::ReadProcessMemory(
-        proc_handle,
-        addr,
-        buf as *mut T as *mut ::core::ffi::c_void,
-        size,
-        &mut bytes_num_read,
-    ) {
+    if 0 == crate::ffi::ReadProcessMemory(proc_handle, addr, buf.cast(), size, &mut bytes_num_read)
+    {
         return Err(::std::io::Error::last_os_error());
     }
 
@@ -444,7 +240,7 @@ pub unsafe fn read_mem_t<T>(
 pub unsafe fn write_mem_t<T>(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
-    buf: &T,
+    buf: *const T,
     size: usize,
 ) -> Result<usize, ::std::io::Error> {
     let mut bytes_num_written: usize = 0;
@@ -452,7 +248,7 @@ pub unsafe fn write_mem_t<T>(
     if 0 == crate::ffi::WriteProcessMemory(
         proc_handle,
         addr,
-        buf as *const T as *const ::core::ffi::c_void,
+        buf.cast(),
         size,
         &mut bytes_num_written,
     ) {

@@ -1,48 +1,103 @@
 #[test]
 fn get_mod_info() {
     unsafe {
-        let mod_handle = vcheat::internal::get_mod_handle("").unwrap();
-        vcheat::internal::get_mod_info(mod_handle).unwrap();
+        let mi = vcheat::internal::get_mod_info("").unwrap();
+        mi.name;
+        mi.addr;
+        mi.handle;
+        mi.size;
     }
 }
 
 #[test]
 fn read_write_mem() {
     unsafe {
-        let mod_handle = vcheat::internal::get_mod_handle("ntdll.dll").unwrap();
-
         let proc_handle = vcheat::internal::get_proc_handle();
 
-        let (mod_addr, mod_size) = vcheat::internal::get_mod_info(mod_handle).unwrap();
+        let mi = vcheat::internal::get_mod_info("").unwrap();
 
-        let data = vcheat::read_mem(proc_handle, mod_addr, mod_size as usize).unwrap();
-
-        vcheat::internal::protect_mem(
-            mod_addr,
-            mod_size as usize,
-            vcheat::page_prot_ty::EXECUTE_READ_WRITE,
+        let _prev_protect = vcheat::internal::protect_mem(
+            mi.addr,
+            mi.size as usize,
+            vcheat::types::mem_protect::EXECUTE_READ_WRITE,
         )
         .unwrap();
 
-        vcheat::write_mem(proc_handle, mod_addr, &data).unwrap();
+        let mod_data = vcheat::read_mem(proc_handle, mi.addr, mi.size as usize).unwrap();
+
+        let bytes_num_written = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
+
+        let mut mod_data1 = vec![0u8; mi.size as usize as usize];
+
+        let bytes_num_written1 = vcheat::read_mem_t(
+            proc_handle,
+            mi.addr,
+            mod_data1.as_mut_ptr() as *mut u8,
+            mi.size as usize,
+        )
+        .unwrap();
+
+        vcheat::internal::protect_mem(
+            mi.addr,
+            mi.size as usize,
+            vcheat::types::mem_protect::EXECUTE_READ_WRITE,
+        )
+        .unwrap();
+
+        assert_eq!(bytes_num_written, bytes_num_written1);
+        assert_eq!(mod_data, mod_data1);
     }
 }
 
 #[test]
-fn alloc_query_mem() {
+fn load_free_dll() {
     unsafe {
-        let buffer = vcheat::internal::alloc_mem(
-            ::core::ptr::null_mut(),
-            0x100,
-            vcheat::mem_alloc_ty::RESERVE | vcheat::mem_alloc_ty::COMMIT,
-            vcheat::page_prot_ty::READ_WRITE,
+        let mod_handle = vcheat::internal::load_dll("dinput8.dll").unwrap();
+        vcheat::internal::free_dll(mod_handle).unwrap();
+    }
+}
+
+#[test]
+fn alloc_free_mem() {
+    unsafe {
+        let alloc = vcheat::internal::alloc_mem(
+            ::core::ptr::null(),
+            0x1000,
+            vcheat::types::mem_alloc::COMMIT,
+            vcheat::types::mem_protect::READ_WRITE,
         )
         .unwrap();
 
-        #[allow(unused_variables)]
-        let (base_address, region_size, allocation_protectct, type_, state, protect) =
-            vcheat::internal::query_mem(buffer).unwrap();
+        let proc_handle = vcheat::internal::get_proc_handle();
 
-        vcheat::internal::free_mem(buffer, 0, vcheat::mem_free_ty::RELEASE).unwrap();
+        vcheat::write_mem(proc_handle, alloc, &[0xD2_u8, 0x04]).unwrap();
+
+        let buf = vcheat::read_mem(proc_handle, alloc, 4).unwrap();
+
+        vcheat::internal::free_mem(alloc, 0, vcheat::types::mem_free::RELEASE).unwrap();
+
+        let bytes = [buf[0], buf[1], buf[2], buf[3]];
+
+        let num = i32::from_le_bytes(bytes);
+
+        assert_eq!(num, 1234);
+    }
+}
+
+#[allow(unused)]
+// #[test]
+fn read_multi_pointer() {
+    unsafe {
+        let proc_handle = vcheat::internal::get_proc_handle();
+
+        // A: *base_addr
+        // B: (*A).add(0xAB)
+        // C: (*B).add(0xCD)
+        // ......
+        let final_ptr = vcheat::internal::read_multi_pointer(
+            0x123456 as *const ::core::ffi::c_void,
+            &[0xAB, 0xCD, 0x10, 0x20],
+        )
+        .unwrap();
     }
 }

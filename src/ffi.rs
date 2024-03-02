@@ -13,6 +13,8 @@ extern "system" {
 #[link(name = "Kernel32")]
 extern "system" {
 
+    pub(crate) fn GetModuleFileNameW(hModule: HMODULE, lpFilename: *mut u16, nSize: u32) -> u32;
+
     pub(crate) fn GetExitCodeThread(hThread: HANDLE, lpExitCode: *mut u32) -> BOOL;
 
     pub(crate) fn GetCurrentProcess() -> HANDLE;
