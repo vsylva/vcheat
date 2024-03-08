@@ -428,17 +428,19 @@ pub unsafe fn read_multi_pointer(
     {
         let mut mbi = query_mem(proc_handle, base_addr)?;
 
-        let mut readable = mbi.state != crate::types::mem_alloc::COMMIT
-            || mbi.protect == crate::types::mem_protect::NOACCESS;
+        let mut is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
+            && mbi.protect & crate::types::mem_protect::READONLY
+                | crate::types::mem_protect::READ_WRITE
+                | crate::types::mem_protect::EXECUTE_READ
+                | crate::types::mem_protect::EXECUTE_READ_WRITE
+                != 0;
 
-        let mut prev_protectect = 0;
-
-        if !readable {
-            prev_protectect = protect_mem(
+        if !is_mem_readable {
+            protect_mem(
                 proc_handle,
                 base_addr,
                 0x1000,
-                crate::types::mem_protect::EXECUTE_READ_WRITE,
+                mbi.protect | crate::types::mem_protect::READ_WRITE,
             )?;
         }
 
@@ -447,8 +449,8 @@ pub unsafe fn read_multi_pointer(
 
         crate::read_mem_t(proc_handle, base_addr, &mut buf, size)?;
 
-        if !readable {
-            protect_mem(proc_handle, base_addr, 0x1000, prev_protectect)?;
+        if !is_mem_readable {
+            protect_mem(proc_handle, base_addr, 0x1000, mbi.protect)?;
         }
 
         for offset in offsets {
@@ -456,24 +458,26 @@ pub unsafe fn read_multi_pointer(
 
             mbi = query_mem(proc_handle, base_addr)?;
 
-            readable = mbi.state != crate::types::mem_alloc::COMMIT
-                || mbi.protect == crate::types::mem_protect::NOACCESS;
+            is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
+                && mbi.protect & crate::types::mem_protect::READONLY
+                    | crate::types::mem_protect::READ_WRITE
+                    | crate::types::mem_protect::EXECUTE_READ
+                    | crate::types::mem_protect::EXECUTE_READ_WRITE
+                    != 0;
 
-            let mut prev_prot = 0;
-
-            if !readable {
-                prev_prot = protect_mem(
+            if !is_mem_readable {
+                protect_mem(
                     proc_handle,
                     base_addr,
                     0x1000,
-                    crate::types::mem_protect::EXECUTE_READ_WRITE,
+                    mbi.protect | crate::types::mem_protect::READ_WRITE,
                 )?;
             }
 
             crate::read_mem_t(proc_handle, base_addr, &mut buf, size)?;
 
-            if !readable {
-                protect_mem(proc_handle, base_addr, 0x1000, prev_prot)?;
+            if !is_mem_readable {
+                protect_mem(proc_handle, base_addr, 0x1000, mbi.protect)?;
             }
         }
 

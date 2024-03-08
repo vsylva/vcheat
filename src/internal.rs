@@ -200,23 +200,25 @@ pub unsafe fn read_multi_pointer(
     {
         let mut mbi = query_mem(base_addr)?;
 
-        let mut readable = mbi.state != crate::types::mem_alloc::COMMIT
-            || mbi.protect == crate::types::mem_protect::NOACCESS;
+        let mut is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
+            && mbi.protect & crate::types::mem_protect::READONLY
+                | crate::types::mem_protect::READ_WRITE
+                | crate::types::mem_protect::EXECUTE_READ
+                | crate::types::mem_protect::EXECUTE_READ_WRITE
+                != 0;
 
-        let mut prev_protect = 0;
-
-        if !readable {
-            prev_protect = protect_mem(
+        if !is_mem_readable {
+            protect_mem(
                 base_addr,
                 0x1000,
-                crate::types::mem_protect::EXECUTE_READ_WRITE,
+                mbi.protect | crate::types::mem_protect::READ_WRITE,
             )?;
         }
 
         base_addr = base_addr.read() as isize as *const ::core::ffi::c_void;
 
-        if !readable {
-            protect_mem(base_addr, 0x1000, prev_protect)?;
+        if !is_mem_readable {
+            protect_mem(base_addr, 0x1000, mbi.protect)?;
         }
 
         for offset in offsets {
@@ -224,23 +226,25 @@ pub unsafe fn read_multi_pointer(
 
             mbi = query_mem(base_addr)?;
 
-            readable = mbi.state != crate::types::mem_alloc::COMMIT
-                || mbi.protect == crate::types::mem_protect::NOACCESS;
+            is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
+                && mbi.protect & crate::types::mem_protect::READONLY
+                    | crate::types::mem_protect::READ_WRITE
+                    | crate::types::mem_protect::EXECUTE_READ
+                    | crate::types::mem_protect::EXECUTE_READ_WRITE
+                    != 0;
 
-            let mut prev_prot = 0;
-
-            if !readable {
-                prev_prot = protect_mem(
+            if !is_mem_readable {
+                protect_mem(
                     base_addr,
                     0x1000,
-                    crate::types::mem_protect::EXECUTE_READ_WRITE,
+                    mbi.protect | crate::types::mem_protect::READ_WRITE,
                 )?;
             }
 
             base_addr = base_addr.read() as isize as *const ::core::ffi::c_void;
 
-            if !readable {
-                protect_mem(base_addr, 0x1000, prev_prot)?;
+            if !is_mem_readable {
+                protect_mem(base_addr, 0x1000, mbi.protect)?;
             }
         }
 
