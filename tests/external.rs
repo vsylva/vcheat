@@ -40,7 +40,7 @@ fn read_write_mem() {
 
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
 
-        let prev_protect = vcheat::external::protect_mem(
+        vcheat::external::protect_mem(
             proc_handle,
             mi.addr,
             mi.size as usize,
@@ -62,13 +62,10 @@ fn read_write_mem() {
         )
         .unwrap();
 
-        vcheat::external::protect_mem(proc_handle, mi.addr, mi.size as usize, prev_protect)
-            .unwrap();
-
         assert_eq!(bytes_num_written, bytes_num_written1);
         assert_eq!(mod_data, mod_data1);
 
-        vcheat::close_handle(proc_handle).unwrap();
+        vcheat::external::close_handle(proc_handle).unwrap();
     }
 }
 
@@ -82,7 +79,7 @@ fn inject_dll() {
 
         vcheat::external::inject_dll(proc_handle, "test.dll").unwrap();
 
-        vcheat::close_handle(proc_handle).unwrap();
+        vcheat::external::close_handle(proc_handle).unwrap();
     }
 }
 
@@ -98,7 +95,7 @@ fn eject_dll() {
 
         vcheat::external::eject_dll(proc_handle, mi.handle, false).unwrap();
 
-        vcheat::close_handle(proc_handle).unwrap();
+        vcheat::external::close_handle(proc_handle).unwrap();
     }
 }
 
@@ -129,7 +126,7 @@ fn alloc_free_mem() {
 
         let num = i32::from_le_bytes(bytes);
 
-        vcheat::close_handle(proc_handle).unwrap();
+        vcheat::external::close_handle(proc_handle).unwrap();
 
         assert_eq!(num, 1234);
     }

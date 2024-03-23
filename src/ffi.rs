@@ -103,10 +103,7 @@ extern "system" {
 
     pub(crate) fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *mut u32) -> BOOL;
 
-    pub(crate) fn GetProcAddress(
-        hModule: HMODULE,
-        lpProcName: *const i8,
-    ) -> *mut ::core::ffi::c_void;
+    pub(crate) fn GetProcAddress(hModule: HMODULE, lpProcName: *const i8) -> HANDLE;
 
     pub(crate) fn AllocConsole() -> BOOL;
 

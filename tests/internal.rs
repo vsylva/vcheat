@@ -14,28 +14,7 @@ fn read_write_mem() {
     unsafe {
         let proc_handle = vcheat::internal::get_proc_handle();
 
-        let mi = vcheat::internal::get_mod_info("").unwrap();
-
-        let _prev_protect = vcheat::internal::protect_mem(
-            mi.addr,
-            mi.size as usize,
-            vcheat::types::mem_protect::EXECUTE_READ_WRITE,
-        )
-        .unwrap();
-
-        let mod_data = vcheat::read_mem(proc_handle, mi.addr, mi.size as usize).unwrap();
-
-        let bytes_num_written = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
-
-        let mut mod_data1 = vec![0u8; mi.size as usize as usize];
-
-        let bytes_num_written1 = vcheat::read_mem_t(
-            proc_handle,
-            mi.addr,
-            mod_data1.as_mut_ptr() as *mut u8,
-            mi.size as usize,
-        )
-        .unwrap();
+        let mi = vcheat::internal::get_mod_info("kernel32.dll").unwrap();
 
         vcheat::internal::protect_mem(
             mi.addr,
@@ -44,8 +23,26 @@ fn read_write_mem() {
         )
         .unwrap();
 
-        assert_eq!(bytes_num_written, bytes_num_written1);
-        assert_eq!(mod_data, mod_data1);
+        let mod_data = vcheat::read_mem(proc_handle, mi.addr, mi.size as usize).unwrap();
+
+        let mut mod_data1 = vec![0u8; mi.size as usize as usize];
+
+        vcheat::read_mem_t(
+            proc_handle,
+            mi.addr,
+            mod_data1.as_mut_ptr() as *mut u8,
+            mi.size as usize,
+        )
+        .unwrap();
+
+        let bytes_num_writen = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
+
+        let bytes_num_writen1 =
+            vcheat::write_mem_t(proc_handle, mi.addr, mod_data1.as_ptr(), mi.size as usize)
+                .unwrap();
+
+        assert_eq!(bytes_num_writen, bytes_num_writen1);
+        assert_eq!(mod_data, mod_data1)
     }
 }
 

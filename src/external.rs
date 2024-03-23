@@ -5,16 +5,25 @@ use crate::{HANDLE, HMODULE};
 pub unsafe fn open_proc(proc_id: u32) -> Result<HANDLE, ::std::io::Error> {
     let proc_handle = crate::ffi::OpenProcess(0x1F0FFF, 0, proc_id);
 
-    if 0 == proc_handle {
+    if 0 == proc_handle as isize {
         return Err(::std::io::Error::last_os_error());
     }
 
     Ok(proc_handle)
 }
 
+#[inline]
+pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
+    if 0 == crate::ffi::CloseHandle(handle) {
+        return Err(::std::io::Error::last_os_error());
+    };
+
+    Ok(())
+}
+
 #[doc = "Return value: `Process id`"]
 pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Error> {
-    let snapshot_handle: isize = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
+    let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as isize == -1 {
         return Err(::std::io::Error::last_os_error());
@@ -26,7 +35,7 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
     proc_info.dw_size = ::core::mem::size_of::<crate::ffi::ProcessEntry32W>() as u32;
 
     if 0 == crate::ffi::Process32FirstW(snapshot_handle, &mut proc_info) {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Err(::std::io::Error::last_os_error());
     }
@@ -36,7 +45,7 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
         .map_err(|err| ::std::io::Error::other(err))?
         .eq_ignore_ascii_case(proc_name.as_ref())
     {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Ok(proc_info.th32_process_id);
     }
@@ -47,20 +56,23 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
             .map_err(|err| ::std::io::Error::other(err))?
             .eq_ignore_ascii_case(proc_name.as_ref())
         {
-            crate::close_handle(snapshot_handle)?;
+            close_handle(snapshot_handle)?;
 
             return Ok(proc_info.th32_process_id);
         }
     }
 
-    crate::close_handle(snapshot_handle)?;
+    close_handle(snapshot_handle)?;
 
-    Err(::std::io::ErrorKind::NotFound.into())
+    Err(::std::io::Error::other(format!(
+        "{} not found",
+        proc_name.as_ref()
+    )))
 }
 
-#[doc = "Return value: `Vec<ProcInfo>`"]
+#[doc = "Return value: `Vec<types::ProcInfo>`"]
 pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::io::Error> {
-    let snapshot_handle: isize = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
+    let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as isize == -1 {
         return Err(::std::io::Error::last_os_error());
@@ -72,7 +84,7 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
     proc_info.dw_size = ::core::mem::size_of::<crate::ffi::ProcessEntry32W>() as u32;
 
     if 0 == crate::ffi::Process32FirstW(snapshot_handle, &mut proc_info) {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Err(::std::io::Error::last_os_error());
     }
@@ -99,7 +111,7 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
         })
     }
 
-    crate::close_handle(snapshot_handle)?;
+    close_handle(snapshot_handle)?;
 
     Ok(procs_info)
 }
@@ -109,7 +121,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     pid: u32,
     mod_name: S,
 ) -> Result<crate::types::ModInfo, ::std::io::Error> {
-    let snapshot_handle: isize = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
+    let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
 
     if snapshot_handle as isize == -1 {
         return Err(::std::io::Error::last_os_error());
@@ -121,7 +133,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     mod_info.dw_size = ::core::mem::size_of::<crate::ffi::ModuleEntry32W>() as u32;
 
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut mod_info) {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Err(::std::io::Error::last_os_error());
     }
@@ -131,7 +143,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
         .map_err(|err| ::std::io::Error::other(err))?;
 
     if mod_name_.eq_ignore_ascii_case(mod_name.as_ref()) {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Ok(crate::types::ModInfo {
             name: mod_name_,
@@ -147,7 +159,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
             .map_err(|err| ::std::io::Error::other(err))?;
 
         if mod_name_.eq_ignore_ascii_case(mod_name.as_ref()) {
-            crate::close_handle(snapshot_handle)?;
+            close_handle(snapshot_handle)?;
 
             return Ok(crate::types::ModInfo {
                 name: mod_name_,
@@ -158,14 +170,17 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
         }
     }
 
-    crate::close_handle(snapshot_handle)?;
+    close_handle(snapshot_handle)?;
 
-    Err(::std::io::ErrorKind::NotFound.into())
+    Err(::std::io::Error::other(format!(
+        "{} not found",
+        mod_name.as_ref()
+    )))
 }
 
 #[doc = "Return value: `Vec<ModInfo>`"]
 pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, ::std::io::Error> {
-    let snapshot_handle: isize = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
+    let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
 
     if snapshot_handle as isize == -1 {
         return Err(::std::io::Error::last_os_error());
@@ -177,7 +192,7 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
     mod_info.dw_size = ::core::mem::size_of::<crate::ffi::ModuleEntry32W>() as u32;
 
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut mod_info) {
-        crate::close_handle(snapshot_handle)?;
+        close_handle(snapshot_handle)?;
 
         return Err(::std::io::Error::last_os_error());
     }
@@ -208,7 +223,7 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
         })
     }
 
-    crate::close_handle(snapshot_handle)?;
+    close_handle(snapshot_handle)?;
 
     Ok(mods_info)
 }
@@ -272,7 +287,6 @@ pub unsafe fn query_mem(
     })
 }
 
-#[doc = "Return value: `Previous access protection`"]
 pub unsafe fn protect_mem(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
@@ -291,11 +305,14 @@ pub unsafe fn protect_mem(
 #[doc = "Remote DLL Injection"]
 pub unsafe fn inject_dll<S: AsRef<str>>(
     proc_handle: HANDLE,
-    mod_path: S,
+    dll_path: S,
 ) -> Result<(), ::std::io::Error> {
-    let buf = crate::common::rs_to_cwsb(mod_path.as_ref());
+    let dll_path_buf = format!("{}\0", dll_path.as_ref())
+        .to_string()
+        .encode_utf16()
+        .collect::<Vec<u16>>();
 
-    let len = buf.len() * ::core::mem::size_of::<u16>();
+    let len = dll_path_buf.len() * ::core::mem::size_of::<u16>();
 
     let proc_name = b"LoadLibraryW\0";
 
@@ -310,7 +327,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
         proc_name.as_ptr().cast(),
     );
 
-    if proc.is_null() {
+    if 0 == proc as isize {
         return Err(::std::io::Error::last_os_error());
     }
 
@@ -322,7 +339,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
         crate::types::mem_protect::READ_WRITE,
     )?;
 
-    crate::write_mem(proc_handle, addr, &buf)?;
+    crate::write_mem(proc_handle, addr, &dll_path_buf)?;
 
     let thread_handle = crate::ffi::CreateRemoteThread(
         proc_handle,
@@ -334,7 +351,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
         ::core::ptr::null_mut(),
     );
 
-    if 0 == thread_handle {
+    if 0 == thread_handle as isize {
         let err = ::std::io::Error::last_os_error();
 
         free_mem(proc_handle, addr, 0, crate::types::mem_free::RELEASE)?;
@@ -351,12 +368,12 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
     }
 
     if 0 == code {
-        return Err(::std::io::ErrorKind::NotFound.into());
+        return Err(::std::io::ErrorKind::InvalidInput.into());
     }
 
     free_mem(proc_handle, addr, 0, crate::types::mem_free::RELEASE)?;
 
-    crate::close_handle(thread_handle)?;
+    close_handle(thread_handle)?;
 
     Ok(())
 }
@@ -380,13 +397,12 @@ pub unsafe fn eject_dll(
             String::from("kernel32.dll\0")
                 .encode_utf16()
                 .collect::<Vec<u16>>()
-                .as_ptr()
-                .cast(),
+                .as_ptr(),
         ),
         c_str.as_ptr().cast(),
     );
 
-    let th = crate::ffi::CreateRemoteThread(
+    let thread_handle = crate::ffi::CreateRemoteThread(
         proc_handle,
         ::core::ptr::null_mut(),
         0,
@@ -396,25 +412,25 @@ pub unsafe fn eject_dll(
         ::core::ptr::null_mut(),
     );
 
-    if 0 == th {
+    if 0 == thread_handle as isize {
         return Err(::std::io::Error::last_os_error());
     }
 
-    crate::ffi::WaitForSingleObject(th, 0xFFFFFFFF);
+    crate::ffi::WaitForSingleObject(thread_handle, 0xFFFFFFFF);
 
     if !should_exit_thread {
         let mut code = 0;
 
-        if 0 == crate::ffi::GetExitCodeThread(th, &mut code) {
+        if 0 == crate::ffi::GetExitCodeThread(thread_handle, &mut code) {
             return Err(::std::io::Error::last_os_error());
         }
 
         if 0 == code {
-            return Err(::std::io::ErrorKind::NotFound.into());
+            return Err(::std::io::ErrorKind::InvalidInput.into());
         }
     }
 
-    crate::close_handle(th)?;
+    close_handle(thread_handle)?;
 
     Ok(())
 }

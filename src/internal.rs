@@ -5,54 +5,28 @@ pub unsafe fn get_proc_handle() -> HANDLE {
     crate::ffi::GetCurrentProcess()
 }
 
-// #[doc = r#"Return value: `Handle`
+#[doc = r#"Return value: `ModInfo`
 
-// If the parameter is **empty**, the function returns information about the file used to create the calling process (.exe file)
-
-// The function does not increase the module reference count"#]
-// unsafe fn get_mod_handle<S: AsRef<str>>(mod_name: S) -> Result<HMODULE, ::std::io::Error> {
-//     let mod_name_ptr;
-
-//     let mod_name_buf;
-
-//     if mod_name.as_ref().is_empty() {
-//         mod_name_ptr = ::core::ptr::null();
-//     } else {
-//         mod_name_buf = crate::common::rs_to_cwsb(mod_name.as_ref());
-//         mod_name_ptr = mod_name_buf.as_ptr();
-//     }
-
-//     let mod_handle = crate::ffi::GetModuleHandleW(mod_name_ptr);
-
-//     if 0 == mod_handle {
-//         return Err(::std::io::Error::last_os_error());
-//     }
-
-//     Ok(mod_handle)
-// }
-
-#[doc = "Return value: `ModInfo`"]
+If the parameter is an empty string `""`, retrieve the main module"#]
 pub unsafe fn get_mod_info<S: AsRef<str>>(
     mod_name: S,
 ) -> Result<crate::types::ModInfo, ::std::io::Error> {
-    let mod_name_ptr;
-
-    let mod_name_buf;
+    let mod_handle;
 
     if mod_name.as_ref().is_empty() {
-        mod_name_ptr = ::core::ptr::null();
+        mod_handle = crate::ffi::GetModuleHandleW(::core::ptr::null())
     } else {
-        mod_name_buf = crate::common::rs_to_cwsb(mod_name.as_ref());
-        mod_name_ptr = mod_name_buf.as_ptr();
-    }
+        let mod_name_buf = format!("{}\0", mod_name.as_ref())
+            .to_string()
+            .encode_utf16()
+            .collect::<Vec<u16>>();
 
-    let mod_handle = crate::ffi::GetModuleHandleW(mod_name_ptr);
+        mod_handle = crate::ffi::GetModuleHandleW(mod_name_buf.as_ptr())
+    };
 
-    if 0 == mod_handle {
+    if 0 == mod_handle as isize {
         return Err(::std::io::Error::last_os_error());
     }
-
-    // let mod_handle = get_mod_handle(mod_name.as_ref())?;
 
     let mut mod_info = ::core::mem::zeroed::<crate::ffi::MODULEINFO>();
 
@@ -82,7 +56,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
         .file_name()
         .ok_or(::std::io::Error::other("file_name()"))?
         .to_str()
-        .ok_or(::std::io::Error::other("file_name()to_str()"))?
+        .ok_or(::std::io::Error::other("to_str()"))?
         .to_owned();
 
     Ok(crate::types::ModInfo {
@@ -148,7 +122,6 @@ pub unsafe fn query_mem(
     })
 }
 
-#[doc = "Return value: `Previous access protection`"]
 pub unsafe fn protect_mem(
     addr: *const ::core::ffi::c_void,
     size: usize,
@@ -164,12 +137,15 @@ pub unsafe fn protect_mem(
 }
 
 #[doc = "Return value: `Handle`"]
-pub unsafe fn load_dll<S: AsRef<str>>(name: S) -> Result<HMODULE, ::std::io::Error> {
-    let mod_name_buf = crate::common::rs_to_cwsb(name.as_ref());
+pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HMODULE, ::std::io::Error> {
+    let dll_name_buf = format!("{}\0", dll_name.as_ref())
+        .to_string()
+        .encode_utf16()
+        .collect::<Vec<u16>>();
 
-    let mod_handle = crate::ffi::LoadLibraryW(mod_name_buf.as_ptr());
+    let mod_handle = crate::ffi::LoadLibraryW(dll_name_buf.as_ptr());
 
-    if 0 == mod_handle {
+    if 0 == mod_handle as isize {
         return Err(::std::io::Error::last_os_error());
     }
 

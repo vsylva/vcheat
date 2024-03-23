@@ -4,173 +4,115 @@
 [![Static Badge](https://img.shields.io/badge/Github-vcheat-green?style=for-the-badge)](https://github.com/vSylva/vcheat/)
 "#]
 
+mod ffi;
+
+#[doc = "Location of memory constants"]
+pub mod types;
+
 #[doc = "Commonly used by `.exe`"]
 pub mod external;
 
 #[doc = "Commonly used by `.dll`"]
 pub mod internal;
 
-mod common;
-mod ffi;
-
-#[doc = "Module where the constant is located"]
-pub mod types;
-
-type HMODULE = isize;
 type HANDLE = isize;
+type HMODULE = HANDLE;
 type BOOL = i32;
 
-#[inline]
-pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
-    if 0 == crate::ffi::CloseHandle(handle) {
-        return Err(::std::io::Error::last_os_error());
-    };
-
-    Ok(())
-}
-
-#[doc = r#"Return value: `Offset`
-
-Author: **sonodima**
-
-<https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
-<https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>"#]
+#[doc = r"Return value: `Offset`"]
 pub unsafe fn pat_find(pat: &str, data: &[u8]) -> Result<usize, ::std::io::Error> {
-    let mut sig: Vec<u8> = Vec::<u8>::new();
-
-    let mut mask: Vec<bool> = Vec::<bool>::new();
+    let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
-            mask.push(false);
-
-            sig.push(0);
+            pat_bytes.push(0);
         } else {
             let num: u8 =
                 u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
 
-            mask.push(true);
-
-            sig.push(num);
+            pat_bytes.push(num);
         }
     }
 
-    let mut start_offset: usize = mask.iter().take_while(|x| **x == false).count();
+    let data_len = data.len();
+    let pat_bytes_len = pat_bytes.len();
 
-    let end_offset: usize = mask.iter().rev().take_while(|x| **x == false).count();
+    let mut skip_table = [pat_bytes.len(); 256];
 
-    if start_offset != mask.len() {
-        sig = sig[start_offset..sig.len() - end_offset].to_vec();
-
-        mask = mask[start_offset..mask.len() - end_offset].to_vec();
-    } else {
-        start_offset = 0;
-    }
-
-    let first_byte: u8 = sig[0];
-
-    let first_mask: bool = mask[0];
-
-    for i in 0..data.len() - sig.len() {
-        if data[i] != first_byte && first_mask {
-            continue;
-        }
-
-        let data: &[u8] = &data[i..];
-
-        let mut found: bool = true;
-
-        for (i, sig) in sig.iter().enumerate() {
-            if !mask[i] {
-                continue;
-            }
-
-            if data[i] != sig.to_owned() {
-                found = false;
-
-                break;
-            }
-        }
-
-        if found {
-            return Ok(i - start_offset);
+    for (i, byte) in pat_bytes.iter().enumerate().take(pat_bytes.len() - 1).rev() {
+        if skip_table[*byte as usize] == pat_bytes.len() {
+            skip_table[*byte as usize] = pat_bytes.len() - 1 - i;
         }
     }
 
-    Err(::std::io::ErrorKind::NotFound.into())
+    let mut i = pat_bytes_len - 1;
+
+    while i < data_len {
+        let mut j = pat_bytes_len - 1;
+        let mut k = i;
+
+        while j > 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+            k -= 1;
+            j -= 1;
+        }
+
+        if j == 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+            return Ok(k);
+        }
+
+        i += skip_table[data[i] as usize];
+    }
+
+    Err(::std::io::Error::other("\"pat\" not found"))
 }
 
-#[doc = r#"Return value: `Vec<Offset>`
-
-Author: **sonodima**
-
-<https://github.com/sonodima/aobscan/blob/master/src/builder.rs>
-<https://github.com/sonodima/aobscan/blob/master/src/pattern.rs>"#]
+#[doc = r"Return value: `Vec<Offset>`"]
 pub unsafe fn pat_scan(pat: &str, data: &[u8]) -> Result<Vec<usize>, ::std::io::Error> {
-    let mut sig: Vec<u8> = Vec::<u8>::new();
-
-    let mut mask: Vec<bool> = Vec::<bool>::new();
+    let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
-            mask.push(false);
-
-            sig.push(0);
+            pat_bytes.push(0);
         } else {
             let num: u8 =
                 u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
 
-            mask.push(true);
-
-            sig.push(num);
+            pat_bytes.push(num);
         }
     }
 
-    let mut start_offset: usize = mask.iter().take_while(|x| **x == false).count();
+    let data_len = data.len();
+    let pat_bytes_len = pat_bytes.len();
 
-    let end_offset: usize = mask.iter().rev().take_while(|x| **x == false).count();
+    let mut skip_table = [pat_bytes.len(); 256];
 
-    if start_offset != mask.len() {
-        sig = sig[start_offset..sig.len() - end_offset].to_vec();
-
-        mask = mask[start_offset..mask.len() - end_offset].to_vec();
-    } else {
-        start_offset = 0;
-    }
-
-    let first_byte: u8 = sig[0];
-
-    let first_mask: bool = mask[0];
-
-    let mut offset_list: Vec<usize> = Vec::new();
-
-    for i in 0..data.len() - sig.len() {
-        if data[i] != first_byte && first_mask {
-            continue;
-        }
-
-        let data: &[u8] = &data[i..];
-
-        let mut found: bool = true;
-
-        for (i, sig) in sig.iter().enumerate() {
-            if !mask[i] {
-                continue;
-            }
-
-            if data[i] != sig.to_owned() {
-                found = false;
-
-                break;
-            }
-        }
-
-        if found {
-            offset_list.push(i - start_offset);
+    for (i, byte) in pat_bytes.iter().enumerate().take(pat_bytes.len() - 1).rev() {
+        if skip_table[*byte as usize] == pat_bytes.len() {
+            skip_table[*byte as usize] = pat_bytes.len() - 1 - i;
         }
     }
 
-    Ok(offset_list)
+    let mut i = pat_bytes_len - 1;
+
+    let mut offset_array = Vec::<usize>::new();
+
+    while i < data_len {
+        let mut j = pat_bytes_len - 1;
+        let mut k = i;
+
+        while j > 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+            k -= 1;
+            j -= 1;
+        }
+
+        if j == 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+            offset_array.push(k);
+        }
+
+        i += skip_table[data[i] as usize];
+    }
+
+    Ok(offset_array)
 }
 
 #[doc = "Return value: `Vec<u8>`"]
@@ -293,4 +235,20 @@ pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
     }
 
     Ok(())
+}
+
+pub unsafe fn get_proc_address<S: AsRef<str>>(
+    mod_handle: HMODULE,
+    proc_name: S,
+) -> Result<HANDLE, ::std::io::Error> {
+    let proc_addr = crate::ffi::GetProcAddress(
+        mod_handle,
+        format!("{}\0", proc_name.as_ref()).as_ptr().cast(),
+    );
+
+    if 0 == proc_addr {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(proc_addr)
 }
