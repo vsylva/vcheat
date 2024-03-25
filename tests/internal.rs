@@ -2,10 +2,7 @@
 fn get_mod_info() {
     unsafe {
         let mi = vcheat::internal::get_mod_info("").unwrap();
-        mi.name;
-        mi.addr;
-        mi.handle;
-        mi.size;
+        println!("{:#?}", mi);
     }
 }
 
@@ -14,7 +11,7 @@ fn read_write_mem() {
     unsafe {
         let proc_handle = vcheat::internal::get_proc_handle();
 
-        let mi = vcheat::internal::get_mod_info("kernel32.dll").unwrap();
+        let mi = vcheat::internal::get_mod_info("").unwrap();
 
         vcheat::internal::protect_mem(
             mi.addr,
@@ -25,7 +22,7 @@ fn read_write_mem() {
 
         let mod_data = vcheat::read_mem(proc_handle, mi.addr, mi.size as usize).unwrap();
 
-        let mut mod_data1 = vec![0u8; mi.size as usize as usize];
+        let mut mod_data1 = vec![0u8; mi.size as usize];
 
         vcheat::read_mem_t(
             proc_handle,
@@ -38,8 +35,7 @@ fn read_write_mem() {
         let bytes_num_writen = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
 
         let bytes_num_writen1 =
-            vcheat::write_mem_t(proc_handle, mi.addr, mod_data1.as_ptr(), mi.size as usize)
-                .unwrap();
+            vcheat::write_mem_t(proc_handle, mi.addr, mod_data.as_ptr(), mi.size as usize).unwrap();
 
         assert_eq!(bytes_num_writen, bytes_num_writen1);
         assert_eq!(mod_data, mod_data1)
@@ -81,17 +77,9 @@ fn alloc_free_mem() {
     }
 }
 
-#[allow(unused)]
-// #[test]
-fn read_multi_pointer() {
+fn _read_multi_pointer() {
     unsafe {
-        let proc_handle = vcheat::internal::get_proc_handle();
-
-        // A: *base_addr
-        // B: (*A).add(0xAB)
-        // C: (*B).add(0xCD)
-        // ......
-        let final_ptr = vcheat::internal::read_multi_pointer(
+        let _final_ptr = vcheat::internal::read_multi_pointer(
             0x123456 as *const ::core::ffi::c_void,
             &[0xAB, 0xCD, 0x10, 0x20],
         )

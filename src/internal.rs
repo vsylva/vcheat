@@ -1,4 +1,4 @@
-use crate::{HANDLE, HMODULE};
+use crate::HANDLE;
 
 #[doc = "Return value: `Handle`"]
 pub unsafe fn get_proc_handle() -> HANDLE {
@@ -28,13 +28,13 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
         return Err(::std::io::Error::last_os_error());
     }
 
-    let mut mod_info = ::core::mem::zeroed::<crate::ffi::MODULEINFO>();
+    let mut mod_info = ::core::mem::zeroed::<crate::ffi::ModuleInfo>();
 
     if 0 == crate::ffi::GetModuleInformation(
         crate::ffi::GetCurrentProcess(),
         mod_handle,
         &mut mod_info,
-        ::core::mem::size_of::<crate::ffi::MODULEINFO>() as u32,
+        ::core::mem::size_of::<crate::ffi::ModuleInfo>() as u32,
     ) {
         return Err(::std::io::Error::last_os_error());
     }
@@ -137,7 +137,7 @@ pub unsafe fn protect_mem(
 }
 
 #[doc = "Return value: `Handle`"]
-pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HMODULE, ::std::io::Error> {
+pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HANDLE, ::std::io::Error> {
     let dll_name_buf = format!("{}\0", dll_name.as_ref())
         .to_string()
         .encode_utf16()
@@ -155,7 +155,7 @@ pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HMODULE, ::std::io:
 #[doc = r#"Module reference count decrement
 
 Calling the function from `DllMain` is not safe"#]
-pub unsafe fn free_dll(mod_handle: HMODULE) -> Result<(), ::std::io::Error> {
+pub unsafe fn free_dll(mod_handle: HANDLE) -> Result<(), ::std::io::Error> {
     if 0 == crate::ffi::FreeLibrary(mod_handle) {
         return Err(::std::io::Error::last_os_error());
     }
@@ -164,7 +164,7 @@ pub unsafe fn free_dll(mod_handle: HMODULE) -> Result<(), ::std::io::Error> {
 }
 
 #[doc = "The function allows threads that are executing within a DLL to safely free the DLL in which they are executing and terminate themselves"]
-pub unsafe fn free_dll_exit_thread(mod_handle: HMODULE, exit_code: u32) {
+pub unsafe fn free_dll_exit_thread(mod_handle: HANDLE, exit_code: u32) {
     crate::ffi::FreeLibraryAndExitThread(mod_handle, exit_code);
 }
 

@@ -1,11 +1,11 @@
-use crate::{BOOL, HANDLE, HMODULE};
+use crate::{BOOL, HANDLE};
 
 #[link(name = "Psapi")]
 extern "system" {
     pub(crate) fn GetModuleInformation(
         hProcess: HANDLE,
-        hModule: HMODULE,
-        lpmodinfo: *mut MODULEINFO,
+        hModule: HANDLE,
+        lpmodinfo: *mut ModuleInfo,
         cb: u32,
     ) -> BOOL;
 }
@@ -13,13 +13,13 @@ extern "system" {
 #[link(name = "Kernel32")]
 extern "system" {
 
-    pub(crate) fn GetModuleFileNameW(hModule: HMODULE, lpFilename: *mut u16, nSize: u32) -> u32;
+    pub(crate) fn GetModuleFileNameW(hModule: HANDLE, lpFilename: *mut u16, nSize: u32) -> u32;
 
     pub(crate) fn GetExitCodeThread(hThread: HANDLE, lpExitCode: *mut u32) -> BOOL;
 
     pub(crate) fn GetCurrentProcess() -> HANDLE;
 
-    pub(crate) fn GetModuleHandleW(lpModuleName: *const u16) -> HMODULE;
+    pub(crate) fn GetModuleHandleW(lpModuleName: *const u16) -> HANDLE;
 
     pub(crate) fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: u32) -> u32;
 
@@ -27,7 +27,7 @@ extern "system" {
         hProcess: HANDLE,
         lpThreadAttributes: *const SecurityAttributes,
         dwStackSize: usize,
-        lpStartAddress: LpthreadStartRoutine,
+        lpStartAddress: isize,
         lpParameter: *const ::core::ffi::c_void,
         dwCreationFlags: u32,
         lpThreadId: *mut u32,
@@ -103,7 +103,7 @@ extern "system" {
 
     pub(crate) fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *mut u32) -> BOOL;
 
-    pub(crate) fn GetProcAddress(hModule: HMODULE, lpProcName: *const i8) -> HANDLE;
+    pub(crate) fn GetProcAddress(hModule: HANDLE, lpProcName: *const u8) -> HANDLE;
 
     pub(crate) fn AllocConsole() -> BOOL;
 
@@ -136,15 +136,12 @@ extern "system" {
         lpflOldProtect: *mut u32,
     ) -> BOOL;
 
-    pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> HMODULE;
+    pub(crate) fn LoadLibraryW(lpLibFileName: *const u16) -> HANDLE;
 
-    pub(crate) fn FreeLibrary(hLibModule: HMODULE) -> BOOL;
+    pub(crate) fn FreeLibrary(hLibModule: HANDLE) -> BOOL;
 
-    pub(crate) fn FreeLibraryAndExitThread(hLibModule: HMODULE, dwExitCode: u32) -> !;
+    pub(crate) fn FreeLibraryAndExitThread(hLibModule: HANDLE, dwExitCode: u32) -> !;
 }
-
-pub(crate) type LpthreadStartRoutine =
-    unsafe extern "system" fn(lpThreadParameter: *mut ::core::ffi::c_void) -> u32;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -179,7 +176,7 @@ pub(crate) struct ModuleEntry32W {
     pub(crate) proc_cnt_usage: u32,
     pub(crate) mod_base_addr: *mut u8,
     pub(crate) mod_base_size: u32,
-    pub(crate) h_module: HMODULE,
+    pub(crate) h_module: HANDLE,
     pub(crate) sz_module: [u16; 256],
     pub(crate) sz_exe_path: [u16; 260],
 }
@@ -200,7 +197,7 @@ pub(crate) struct MemoryBasicInformation {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct MODULEINFO {
+pub(crate) struct ModuleInfo {
     pub(crate) lp_base_of_dll: *mut ::core::ffi::c_void,
     pub(crate) size_of_image: u32,
     pub(crate) entry_point: *mut core::ffi::c_void,

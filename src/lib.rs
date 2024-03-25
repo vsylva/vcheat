@@ -16,7 +16,6 @@ pub mod external;
 pub mod internal;
 
 type HANDLE = isize;
-type HMODULE = HANDLE;
 type BOOL = i32;
 
 #[doc = r"Return value: `Offset`"]
@@ -238,7 +237,7 @@ pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
 }
 
 pub unsafe fn get_proc_address<S: AsRef<str>>(
-    mod_handle: HMODULE,
+    mod_handle: HANDLE,
     proc_name: S,
 ) -> Result<HANDLE, ::std::io::Error> {
     let proc_addr = crate::ffi::GetProcAddress(

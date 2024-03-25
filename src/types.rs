@@ -74,7 +74,7 @@ pub struct ProcInfo {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ModInfo {
     pub name: String,
-    pub handle: crate::HMODULE,
+    pub handle: crate::HANDLE,
     pub addr: *mut ::core::ffi::c_void,
     pub size: u32,
 }

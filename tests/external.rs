@@ -2,8 +2,7 @@
 fn get_all_proc_info() {
     unsafe {
         for pi in vcheat::external::get_all_proc_info().unwrap() {
-            pi.id;
-            pi.name;
+            println!("{:#?}", pi);
         }
     }
 }
@@ -15,18 +14,12 @@ fn get_mod_info() {
 
         let mi = vcheat::external::get_mod_info(pid, "explorer.exe").unwrap();
 
-        mi.name;
-        mi.handle;
-        mi.addr;
-        mi.size;
+        println!("{:#?}", mi);
 
         let mis = vcheat::external::get_all_mod_info(pid).unwrap();
 
         for mi in mis {
-            mi.name;
-            mi.handle;
-            mi.addr;
-            mi.size;
+            println!("{:#?}", mi);
         }
     }
 }
@@ -69,38 +62,8 @@ fn read_write_mem() {
     }
 }
 
-#[allow(unused)]
-// #[test]
-fn inject_dll() {
-    unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(pid).unwrap();
-
-        vcheat::external::inject_dll(proc_handle, "test.dll").unwrap();
-
-        vcheat::external::close_handle(proc_handle).unwrap();
-    }
-}
-
-#[allow(unused)]
-// #[test]
-fn eject_dll() {
-    unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
-
-        let proc_handle = vcheat::external::open_proc(pid).unwrap();
-
-        let mi = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
-
-        vcheat::external::eject_dll(proc_handle, mi.handle, false).unwrap();
-
-        vcheat::external::close_handle(proc_handle).unwrap();
-    }
-}
-
 #[test]
-fn alloc_free_mem() {
+fn _alloc_free_mem() {
     unsafe {
         let pid = vcheat::external::get_pid("explorer.exe").unwrap();
 
@@ -132,18 +95,38 @@ fn alloc_free_mem() {
     }
 }
 
-#[allow(unused)]
-// #[test]
-fn read_multi_pointer() {
+fn _inject_dll() {
+    unsafe {
+        let pid = vcheat::external::get_pid("test.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
+        vcheat::external::inject_dll(proc_handle, "test.dll").unwrap();
+
+        vcheat::external::close_handle(proc_handle).unwrap();
+    }
+}
+
+fn _eject_dll() {
+    unsafe {
+        let pid = vcheat::external::get_pid("test.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
+        let mi = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
+
+        vcheat::external::eject_dll(proc_handle, mi.handle, false).unwrap();
+
+        vcheat::external::close_handle(proc_handle).unwrap();
+    }
+}
+
+fn _read_multi_pointer() {
     unsafe {
         let pid = vcheat::external::get_pid("test.exe").unwrap();
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
 
-        // A: *base_addr
-        // B: (*A).add(0xAB)
-        // C: (*B).add(0xCD)
-        // ......
-        let final_ptr = vcheat::external::read_multi_pointer(
+        let _final_ptr = vcheat::external::read_multi_pointer(
             proc_handle,
             0x123456 as *const ::core::ffi::c_void,
             &[0xAB, 0xCD, 0x10, 0x20],

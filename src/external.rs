@@ -1,9 +1,9 @@
-use crate::{HANDLE, HMODULE};
+use crate::HANDLE;
 
 #[doc = "Return value: `Handle`"]
 #[inline]
-pub unsafe fn open_proc(proc_id: u32) -> Result<HANDLE, ::std::io::Error> {
-    let proc_handle = crate::ffi::OpenProcess(0x1F0FFF, 0, proc_id);
+pub unsafe fn open_proc(pid: u32) -> Result<HANDLE, ::std::io::Error> {
+    let proc_handle = crate::ffi::OpenProcess(0x1F0FFF, 0, pid);
 
     if 0 == proc_handle as isize {
         return Err(::std::io::Error::last_os_error());
@@ -41,8 +41,8 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
     }
 
     if String::from_utf16(&proc_info.sz_exe_file)
-        .map(|ok| ok.trim_end_matches("\0").to_owned())
         .map_err(|err| ::std::io::Error::other(err))?
+        .trim_end_matches("\0")
         .eq_ignore_ascii_case(proc_name.as_ref())
     {
         close_handle(snapshot_handle)?;
@@ -52,8 +52,8 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
 
     while 0 != crate::ffi::Process32NextW(snapshot_handle, &mut proc_info) {
         if String::from_utf16(&proc_info.sz_exe_file)
-            .map(|ok| ok.trim_end_matches("\0").to_owned())
             .map_err(|err| ::std::io::Error::other(err))?
+            .trim_end_matches("\0")
             .eq_ignore_ascii_case(proc_name.as_ref())
         {
             close_handle(snapshot_handle)?;
@@ -90,8 +90,9 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
     }
 
     let mut proc_name = String::from_utf16(&proc_info.sz_exe_file)
-        .map(|ok| ok.trim_end_matches("\0").to_owned())
-        .map_err(|err| ::std::io::Error::other(err))?;
+        .map_err(|err| ::std::io::Error::other(err))?
+        .trim_end_matches("\0")
+        .to_owned();
 
     let mut procs_info: Vec<crate::types::ProcInfo> = Vec::new();
 
@@ -102,8 +103,9 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
 
     while 0 != crate::ffi::Process32NextW(snapshot_handle, &mut proc_info) {
         proc_name = String::from_utf16(&proc_info.sz_exe_file)
-            .map(|ok| ok.trim_end_matches("\0").to_owned())
-            .map_err(|err| ::std::io::Error::other(err))?;
+            .map_err(|err| ::std::io::Error::other(err))?
+            .trim_end_matches("\0")
+            .to_owned();
 
         procs_info.push(crate::types::ProcInfo {
             name: proc_name,
@@ -139,8 +141,9 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     }
 
     let mut mod_name_ = String::from_utf16(&mod_info.sz_module)
-        .map(|ok| ok.trim_end_matches("\0").to_owned())
-        .map_err(|err| ::std::io::Error::other(err))?;
+        .map_err(|err| ::std::io::Error::other(err))?
+        .trim_end_matches("\0")
+        .to_owned();
 
     if mod_name_.eq_ignore_ascii_case(mod_name.as_ref()) {
         close_handle(snapshot_handle)?;
@@ -155,8 +158,9 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
 
     while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut mod_info) {
         mod_name_ = String::from_utf16(&mod_info.sz_module)
-            .map(|ok| ok.trim_end_matches("\0").to_owned())
-            .map_err(|err| ::std::io::Error::other(err))?;
+            .map_err(|err| ::std::io::Error::other(err))?
+            .trim_end_matches("\0")
+            .to_owned();
 
         if mod_name_.eq_ignore_ascii_case(mod_name.as_ref()) {
             close_handle(snapshot_handle)?;
@@ -198,8 +202,9 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
     }
 
     let mut mod_name = String::from_utf16(&mod_info.sz_module)
-        .map(|ok| ok.trim_end_matches("\0").to_owned())
-        .map_err(|err| ::std::io::Error::other(err))?;
+        .map_err(|err| ::std::io::Error::other(err))?
+        .trim_end_matches("\0")
+        .to_owned();
 
     let mut mods_info: Vec<crate::types::ModInfo> = Vec::new();
 
@@ -212,8 +217,9 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
 
     while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut mod_info) {
         mod_name = String::from_utf16(&mod_info.sz_module)
-            .map(|ok| ok.trim_end_matches("\0").to_owned())
-            .map_err(|err| ::std::io::Error::other(err))?;
+            .map_err(|err| ::std::io::Error::other(err))?
+            .trim_end_matches("\0")
+            .to_owned();
 
         mods_info.push(crate::types::ModInfo {
             name: mod_name,
@@ -316,18 +322,17 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
 
     let proc_name = b"LoadLibraryW\0";
 
-    let proc = crate::ffi::GetProcAddress(
+    let procedure = crate::ffi::GetProcAddress(
         crate::ffi::GetModuleHandleW(
             String::from("kernel32.dll\0")
                 .encode_utf16()
                 .collect::<Vec<u16>>()
-                .as_ptr()
-                .cast(),
+                .as_ptr(),
         ),
-        proc_name.as_ptr().cast(),
+        proc_name.as_ptr(),
     );
 
-    if 0 == proc as isize {
+    if 0 == procedure as isize {
         return Err(::std::io::Error::last_os_error());
     }
 
@@ -345,7 +350,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
         proc_handle,
         ::core::ptr::null_mut(),
         0,
-        ::core::mem::transmute(proc),
+        procedure,
         addr,
         0,
         ::core::ptr::null_mut(),
@@ -381,7 +386,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
 #[doc = "Remote DLL Ejection"]
 pub unsafe fn eject_dll(
     proc_handle: HANDLE,
-    mod_handle: HMODULE,
+    mod_handle: HANDLE,
     should_exit_thread: bool,
 ) -> Result<(), ::std::io::Error> {
     let c_str: &'static str;
@@ -399,14 +404,14 @@ pub unsafe fn eject_dll(
                 .collect::<Vec<u16>>()
                 .as_ptr(),
         ),
-        c_str.as_ptr().cast(),
+        c_str.as_ptr(),
     );
 
     let thread_handle = crate::ffi::CreateRemoteThread(
         proc_handle,
         ::core::ptr::null_mut(),
         0,
-        ::core::mem::transmute(procedure),
+        procedure,
         mod_handle as *const ::core::ffi::c_void,
         0,
         ::core::ptr::null_mut(),
