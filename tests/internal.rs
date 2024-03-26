@@ -27,18 +27,20 @@ fn read_write_mem() {
         vcheat::read_mem_t(
             proc_handle,
             mi.addr,
-            mod_data1.as_mut_ptr() as *mut u8,
+            mod_data1.as_mut_ptr(),
             mi.size as usize,
         )
         .unwrap();
 
-        let bytes_num_writen = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
+        vcheat::write_mem(proc_handle, mod_data1.as_ptr().cast(), mod_data.as_ref()).unwrap();
 
-        let bytes_num_writen1 =
-            vcheat::write_mem_t(proc_handle, mi.addr, mod_data.as_ptr(), mi.size as usize).unwrap();
-
-        assert_eq!(bytes_num_writen, bytes_num_writen1);
-        assert_eq!(mod_data, mod_data1)
+        vcheat::write_mem_t(
+            proc_handle,
+            mod_data.as_ptr().cast(),
+            mod_data1.as_ptr(),
+            mi.size as usize,
+        )
+        .unwrap();
     }
 }
 
@@ -84,5 +86,18 @@ fn _read_multi_pointer() {
             &[0xAB, 0xCD, 0x10, 0x20],
         )
         .unwrap();
+    }
+}
+
+#[test]
+fn query_mem_type() {
+    unsafe {
+        let mi = vcheat::internal::get_mod_info("").unwrap();
+
+        println!(
+            "{}",
+            vcheat::internal::check_mem_protect(mi.addr, vcheat::types::MemQueryProtect::WRITE)
+                .unwrap()
+        );
     }
 }

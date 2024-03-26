@@ -40,9 +40,9 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     }
 
     // 7FFF = 32,767
-    let mut mod_name_buf = [0u16; 0x7FFF];
+    let mut mod_name_buf = [0u16; 260];
 
-    if 0 == crate::ffi::GetModuleFileNameW(mod_handle, mod_name_buf.as_mut_ptr(), 0x7FFF) {
+    if 0 == crate::ffi::GetModuleFileNameW(mod_handle, mod_name_buf.as_mut_ptr(), 260) {
         return Err(::std::io::Error::last_os_error());
     }
 
@@ -171,59 +171,90 @@ pub unsafe fn free_dll_exit_thread(mod_handle: HANDLE, exit_code: u32) {
 #[doc = "Return value: `Final pointer`"]
 pub unsafe fn read_multi_pointer(
     mut base_addr: *const ::core::ffi::c_void,
-    offsets: &[isize],
+    byte_offsets: &[isize],
 ) -> Result<*const ::core::ffi::c_void, std::io::Error> {
     {
         let mut mbi = query_mem(base_addr)?;
 
-        let mut is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
-            && mbi.protect & crate::types::mem_protect::READONLY
-                | crate::types::mem_protect::READ_WRITE
-                | crate::types::mem_protect::EXECUTE_READ
-                | crate::types::mem_protect::EXECUTE_READ_WRITE
-                != 0;
+        if mbi.state != crate::types::mem_alloc::COMMIT {
+            return Err(std::io::Error::other("The mem is not commit"));
+        }
 
-        if !is_mem_readable {
+        protect_mem(
+            base_addr,
+            0x1000,
+            mbi.protect | crate::types::mem_protect::READ_WRITE,
+        )?;
+
+        base_addr = base_addr.read() as isize as *const ::core::ffi::c_void;
+
+        protect_mem(base_addr, 0x1000, mbi.protect)?;
+
+        for byte_offset in byte_offsets {
+            base_addr = base_addr.byte_offset(*byte_offset);
+
+            mbi = query_mem(base_addr)?;
+
+            if mbi.state != crate::types::mem_alloc::COMMIT {
+                return Err(std::io::Error::other("The mem is not commit"));
+            }
+
             protect_mem(
                 base_addr,
                 0x1000,
                 mbi.protect | crate::types::mem_protect::READ_WRITE,
             )?;
-        }
-
-        base_addr = base_addr.read() as isize as *const ::core::ffi::c_void;
-
-        if !is_mem_readable {
-            protect_mem(base_addr, 0x1000, mbi.protect)?;
-        }
-
-        for offset in offsets {
-            base_addr = base_addr.offset(*offset);
-
-            mbi = query_mem(base_addr)?;
-
-            is_mem_readable = mbi.state == crate::types::mem_alloc::COMMIT
-                && mbi.protect & crate::types::mem_protect::READONLY
-                    | crate::types::mem_protect::READ_WRITE
-                    | crate::types::mem_protect::EXECUTE_READ
-                    | crate::types::mem_protect::EXECUTE_READ_WRITE
-                    != 0;
-
-            if !is_mem_readable {
-                protect_mem(
-                    base_addr,
-                    0x1000,
-                    mbi.protect | crate::types::mem_protect::READ_WRITE,
-                )?;
-            }
 
             base_addr = base_addr.read() as isize as *const ::core::ffi::c_void;
 
-            if !is_mem_readable {
-                protect_mem(base_addr, 0x1000, mbi.protect)?;
-            }
+            protect_mem(base_addr, 0x1000, mbi.protect)?;
         }
 
         Ok(base_addr)
     }
+}
+
+#[doc = "Return value: `Exec/Read/Write?`"]
+pub unsafe fn check_mem_protect(
+    addr: *const ::core::ffi::c_void,
+    mem_query_protect: crate::types::MemQueryProtect,
+) -> Result<bool, std::io::Error> {
+    let mbi = query_mem(addr)?;
+
+    let is_commit = mbi.state == crate::types::mem_alloc::COMMIT;
+
+    if !is_commit {
+        return Err(std::io::Error::other("The mem is not commit"));
+    }
+
+    let protect: bool;
+
+    match mem_query_protect {
+        crate::types::MemQueryProtect::READ => {
+            protect = mbi.protect
+                & (crate::types::mem_protect::READONLY
+                    | crate::types::mem_protect::READ_WRITE
+                    | crate::types::mem_protect::WRITECOPY
+                    | crate::types::mem_protect::EXECUTE_READ
+                    | crate::types::mem_protect::EXECUTE_READ_WRITE
+                    | crate::types::mem_protect::EXECUTE_WRITECOPY)
+                != 0
+        }
+        crate::types::MemQueryProtect::WRITE => {
+            protect = mbi.protect
+                & (crate::types::mem_protect::READ_WRITE
+                    | crate::types::mem_protect::EXECUTE_READ_WRITE)
+                != 0
+        }
+        crate::types::MemQueryProtect::EXECUTE => {
+            protect = mbi.protect
+                & (crate::types::mem_protect::EXECUTE
+                    | crate::types::mem_protect::EXECUTE_READ
+                    | crate::types::mem_protect::EXECUTE_READ_WRITE
+                    | crate::types::mem_protect::EXECUTE_WRITECOPY)
+                != 0
+        }
+    };
+
+    Ok(protect && is_commit)
 }

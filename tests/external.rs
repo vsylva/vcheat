@@ -134,3 +134,26 @@ fn _read_multi_pointer() {
         .unwrap();
     }
 }
+
+#[test]
+fn query_mem_type() {
+    unsafe {
+        let pid = vcheat::external::get_pid("explorer.exe").unwrap();
+
+        let proc_handle = vcheat::external::open_proc(pid).unwrap();
+
+        let mi = vcheat::external::get_mod_info(pid, "explorer.exe").unwrap();
+
+        println!(
+            "{}",
+            vcheat::external::check_mem_protect(
+                proc_handle,
+                mi.addr,
+                vcheat::types::MemQueryProtect::WRITE
+            )
+            .unwrap()
+        );
+
+        vcheat::external::close_handle(proc_handle).unwrap();
+    }
+}

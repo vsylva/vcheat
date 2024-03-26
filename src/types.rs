@@ -86,3 +86,11 @@ pub struct MemInfo {
     pub state: u32,
     pub region_size: usize,
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MemQueryProtect {
+    READ,
+    WRITE,
+    EXECUTE,
+}
