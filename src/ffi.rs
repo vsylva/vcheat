@@ -27,7 +27,7 @@ extern "system" {
         hProcess: HANDLE,
         lpThreadAttributes: *const SecurityAttributes,
         dwStackSize: usize,
-        lpStartAddress: isize,
+        lpStartAddress: HANDLE,
         lpParameter: *const ::core::ffi::c_void,
         dwCreationFlags: u32,
         lpThreadId: *mut u32,

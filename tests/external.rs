@@ -43,11 +43,9 @@ fn read_write_mem() {
 
         let mod_data = vcheat::read_mem(proc_handle, mi.addr, mi.size as usize).unwrap();
 
-        let bytes_num_written = vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
-
         let mut mod_data1 = vec![0u8; mi.size as usize];
 
-        let bytes_num_written1 = vcheat::read_mem_t(
+        vcheat::read_mem_t(
             proc_handle,
             mi.addr,
             mod_data1.as_mut_ptr(),
@@ -55,15 +53,18 @@ fn read_write_mem() {
         )
         .unwrap();
 
-        assert_eq!(bytes_num_written, bytes_num_written1);
         assert_eq!(mod_data, mod_data1);
+
+        vcheat::write_mem(proc_handle, mi.addr, &mod_data).unwrap();
+
+        vcheat::write_mem_t(proc_handle, mi.addr, mod_data.as_ptr(), mi.size as usize).unwrap();
 
         vcheat::external::close_handle(proc_handle).unwrap();
     }
 }
 
 #[test]
-fn _alloc_free_mem() {
+fn alloc_free_mem() {
     unsafe {
         let pid = vcheat::external::get_pid("explorer.exe").unwrap();
 
@@ -95,27 +96,29 @@ fn _alloc_free_mem() {
     }
 }
 
-fn _inject_dll() {
+#[test]
+fn inject_dll() {
     unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
+        let pid = vcheat::external::get_pid("explorer.exe").unwrap();
 
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
 
-        vcheat::external::inject_dll(proc_handle, "test.dll").unwrap();
+        vcheat::external::inject_dll(proc_handle, "d3d12.dll").unwrap();
 
         vcheat::external::close_handle(proc_handle).unwrap();
     }
 }
 
-fn _eject_dll() {
+#[test]
+fn eject_dll() {
     unsafe {
-        let pid = vcheat::external::get_pid("test.exe").unwrap();
+        let pid = vcheat::external::get_pid("explorer.exe").unwrap();
 
         let proc_handle = vcheat::external::open_proc(pid).unwrap();
 
-        let mi = vcheat::external::get_mod_info(pid, "test.dll").unwrap();
+        let mi = vcheat::external::get_mod_info(pid, "d3d12.dll").unwrap();
 
-        vcheat::external::eject_dll(proc_handle, mi.handle, false).unwrap();
+        vcheat::external::eject_dll(proc_handle, mi.handle, true).unwrap();
 
         vcheat::external::close_handle(proc_handle).unwrap();
     }

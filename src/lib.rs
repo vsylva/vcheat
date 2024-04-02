@@ -19,10 +19,10 @@ type HANDLE = isize;
 type BOOL = i32;
 
 #[doc = r"Return value: `Offset`"]
-pub unsafe fn pat_find(pat: &str, data: &[u8]) -> Result<usize, ::std::io::Error> {
+pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> Result<usize, ::std::io::Error> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
-    for pair in pat.split_whitespace() {
+    for pair in pat.as_ref().split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
             pat_bytes.push(0);
         } else {
@@ -66,10 +66,10 @@ pub unsafe fn pat_find(pat: &str, data: &[u8]) -> Result<usize, ::std::io::Error
 }
 
 #[doc = r"Return value: `Vec<Offset>`"]
-pub unsafe fn pat_scan(pat: &str, data: &[u8]) -> Result<Vec<usize>, ::std::io::Error> {
+pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> Result<Vec<usize>, ::std::io::Error> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
-    for pair in pat.split_whitespace() {
+    for pair in pat.as_ref().split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
             pat_bytes.push(0);
         } else {
@@ -148,6 +148,37 @@ pub unsafe fn write_mem<T>(
         addr,
         buf.as_ptr().cast(),
         ::core::mem::size_of::<T>() * buf.len(),
+        &mut bytes_num_written,
+    ) {
+        return Err(::std::io::Error::last_os_error());
+    }
+
+    Ok(bytes_num_written)
+}
+
+#[doc = r#"Return value: `Bytes num written`
+
+`buf: "0A 1B 2C 3D 4E 5F FF"`"#]
+pub unsafe fn write_mem_hex_str<S: AsRef<str>>(
+    proc_handle: HANDLE,
+    addr: *const ::core::ffi::c_void,
+    hex_str: S,
+) -> Result<usize, ::std::io::Error> {
+    let mut bytes_num_written: usize = 0;
+
+    let mut bytes: Vec<u8> = Vec::<u8>::new();
+
+    for c in hex_str.as_ref().split_whitespace() {
+        let num: u8 = u8::from_str_radix(c, 16).map_err(|err| ::std::io::Error::other(err))?;
+
+        bytes.push(num);
+    }
+
+    if 0 == crate::ffi::WriteProcessMemory(
+        proc_handle,
+        addr,
+        bytes.as_ptr().cast(),
+        bytes.len(),
         &mut bytes_num_written,
     ) {
         return Err(::std::io::Error::last_os_error());
@@ -245,7 +276,7 @@ pub unsafe fn get_proc_address<S: AsRef<str>>(
         format!("{}\0", proc_name.as_ref()).as_ptr().cast(),
     );
 
-    if 0 == proc_addr {
+    if 0 == proc_addr as isize {
         return Err(::std::io::Error::last_os_error());
     }
 

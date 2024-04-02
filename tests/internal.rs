@@ -32,15 +32,9 @@ fn read_write_mem() {
         )
         .unwrap();
 
-        vcheat::write_mem(proc_handle, mod_data1.as_ptr().cast(), mod_data.as_ref()).unwrap();
+        vcheat::write_mem(proc_handle, mi.addr, mod_data.as_ref()).unwrap();
 
-        vcheat::write_mem_t(
-            proc_handle,
-            mod_data.as_ptr().cast(),
-            mod_data1.as_ptr(),
-            mi.size as usize,
-        )
-        .unwrap();
+        vcheat::write_mem_t(proc_handle, mi.addr, mod_data1.as_ptr(), mi.size as usize).unwrap();
     }
 }
 
