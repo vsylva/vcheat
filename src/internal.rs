@@ -1,4 +1,4 @@
-use crate::HANDLE;
+use crate::{AnyResult, HANDLE};
 
 #[doc = "Return value: `Handle`"]
 pub unsafe fn get_proc_handle() -> HANDLE {
@@ -8,9 +8,7 @@ pub unsafe fn get_proc_handle() -> HANDLE {
 #[doc = r#"Return value: `ModInfo`
 
 If the parameter is an empty string `""`, retrieve the main module"#]
-pub unsafe fn get_mod_info<S: AsRef<str>>(
-    mod_name: S,
-) -> Result<crate::types::ModInfo, ::std::io::Error> {
+pub unsafe fn get_mod_info<S: AsRef<str>>(mod_name: S) -> AnyResult<crate::types::ModInfo> {
     let mod_handle;
 
     if mod_name.as_ref().is_empty() {
@@ -25,7 +23,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     };
 
     if 0 == mod_handle as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut mod_info = ::core::mem::zeroed::<crate::ffi::ModuleInfo>();
@@ -36,27 +34,26 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
         &mut mod_info,
         ::core::mem::size_of::<crate::ffi::ModuleInfo>() as u32,
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     // 7FFF = 32,767
     let mut mod_name_buf = [0u16; 260];
 
     if 0 == crate::ffi::GetModuleFileNameW(mod_handle, mod_name_buf.as_mut_ptr(), 260) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
-    let mod_name = String::from_utf16(&mod_name_buf)
-        .map_err(|err| ::std::io::Error::other(err))?
+    let mod_name = String::from_utf16(&mod_name_buf)?
         .trim_end_matches("\0")
         .to_owned();
 
     let mod_path = ::std::path::PathBuf::from(&mod_name);
     let mod_filename = mod_path
         .file_name()
-        .ok_or(::std::io::Error::other("file_name()"))?
+        .ok_or("file_name()")?
         .to_str()
-        .ok_or(::std::io::Error::other("to_str()"))?
+        .ok_or("to_str()")?
         .to_owned();
 
     Ok(crate::types::ModInfo {
@@ -73,11 +70,11 @@ pub unsafe fn alloc_mem(
     size: usize,
     mem_alloc: u32,
     mem_protect: u32,
-) -> Result<*mut ::core::ffi::c_void, ::std::io::Error> {
+) -> AnyResult<*mut ::core::ffi::c_void> {
     let addr = crate::ffi::VirtualAlloc(addr, size, mem_alloc, mem_protect);
 
     if ::core::ptr::null_mut() == addr {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(addr)
@@ -88,22 +85,20 @@ pub unsafe fn free_mem(
     addr: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
-) -> Result<(), ::std::io::Error> {
+) -> AnyResult<()> {
     if crate::types::mem_free::RELEASE == mem_free {
         size = 0;
     }
 
     if 0 == crate::ffi::VirtualFree(addr, size, mem_free) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
 }
 
 #[doc = "Return value: `(BaseAddress, RegionSize, AllocationProtect, Type, State, Protect)`"]
-pub unsafe fn query_mem(
-    addr: *const ::core::ffi::c_void,
-) -> Result<crate::types::MemInfo, ::std::io::Error> {
+pub unsafe fn query_mem(addr: *const ::core::ffi::c_void) -> AnyResult<crate::types::MemInfo> {
     let mut mbi: crate::ffi::MemoryBasicInformation =
         ::core::mem::zeroed::<crate::ffi::MemoryBasicInformation>();
 
@@ -112,7 +107,7 @@ pub unsafe fn query_mem(
         &mut mbi,
         ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     };
 
     Ok(crate::types::MemInfo {
@@ -126,18 +121,18 @@ pub unsafe fn protect_mem(
     addr: *const ::core::ffi::c_void,
     size: usize,
     mem_protect: u32,
-) -> Result<u32, ::std::io::Error> {
+) -> AnyResult<u32> {
     let mut prev_protect: u32 = 0;
 
     if 0 == crate::ffi::VirtualProtect(addr, size, mem_protect, &mut prev_protect) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(prev_protect)
 }
 
 #[doc = "Return value: `Handle`"]
-pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HANDLE, ::std::io::Error> {
+pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> AnyResult<HANDLE> {
     let dll_name_buf = format!("{}\0", dll_name.as_ref())
         .to_string()
         .encode_utf16()
@@ -146,7 +141,7 @@ pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HANDLE, ::std::io::
     let mod_handle = crate::ffi::LoadLibraryW(dll_name_buf.as_ptr());
 
     if 0 == mod_handle as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(mod_handle)
@@ -155,9 +150,9 @@ pub unsafe fn load_dll<S: AsRef<str>>(dll_name: S) -> Result<HANDLE, ::std::io::
 #[doc = r#"Module reference count decrement
 
 Calling the function from `DllMain` is not safe"#]
-pub unsafe fn free_dll(mod_handle: HANDLE) -> Result<(), ::std::io::Error> {
+pub unsafe fn free_dll(mod_handle: HANDLE) -> AnyResult<()> {
     if 0 == crate::ffi::FreeLibrary(mod_handle) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
@@ -172,12 +167,12 @@ pub unsafe fn free_dll_exit_thread(mod_handle: HANDLE, exit_code: u32) {
 pub unsafe fn read_multi_pointer(
     mut base_addr: *const ::core::ffi::c_void,
     byte_offsets: &[isize],
-) -> Result<*const ::core::ffi::c_void, std::io::Error> {
+) -> AnyResult<*const ::core::ffi::c_void> {
     {
         let mut mbi = query_mem(base_addr)?;
 
         if mbi.state != crate::types::mem_alloc::COMMIT {
-            return Err(std::io::Error::other("The mem is not commit"));
+            return Err("The mem is not commit".into());
         }
 
         protect_mem(
@@ -196,7 +191,7 @@ pub unsafe fn read_multi_pointer(
             mbi = query_mem(base_addr)?;
 
             if mbi.state != crate::types::mem_alloc::COMMIT {
-                return Err(std::io::Error::other("The mem is not commit"));
+                return Err("The mem is not commit".into());
             }
 
             protect_mem(
@@ -218,13 +213,13 @@ pub unsafe fn read_multi_pointer(
 pub unsafe fn check_mem_protect(
     addr: *const ::core::ffi::c_void,
     mem_query_protect: crate::types::MemQueryProtect,
-) -> Result<bool, std::io::Error> {
+) -> AnyResult<bool> {
     let mbi = query_mem(addr)?;
 
     let is_commit = mbi.state == crate::types::mem_alloc::COMMIT;
 
     if !is_commit {
-        return Err(std::io::Error::other("The mem is not commit"));
+        return Err("The mem is not commit".into());
     }
 
     let protect: bool;

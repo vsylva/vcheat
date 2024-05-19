@@ -15,19 +15,20 @@ pub mod external;
 #[doc = "Commonly used by `.dll`"]
 pub mod internal;
 
-type HANDLE = isize;
-type BOOL = i32;
+pub type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+pub type HANDLE = isize;
+pub type BOOL = i32;
 
 #[doc = r"Return value: `Offset`"]
-pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> Result<usize, ::std::io::Error> {
+pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<usize> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.as_ref().split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
             pat_bytes.push(0);
         } else {
-            let num: u8 =
-                u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
+            let num: u8 = u8::from_str_radix(pair, 16)?;
 
             pat_bytes.push(num);
         }
@@ -62,19 +63,18 @@ pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> Result<usize, ::st
         i += skip_table[data[i] as usize];
     }
 
-    Err(::std::io::Error::other("\"pat\" not found"))
+    Err("\"pat\" not found".into())
 }
 
 #[doc = r"Return value: `Vec<Offset>`"]
-pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> Result<Vec<usize>, ::std::io::Error> {
+pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<Vec<usize>> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.as_ref().split_whitespace() {
         if pair == "?" || pair == "??" || pair == "*" || pair == "**" {
             pat_bytes.push(0);
         } else {
-            let num: u8 =
-                u8::from_str_radix(pair, 16).map_err(|err| ::std::io::Error::other(err))?;
+            let num: u8 = u8::from_str_radix(pair, 16)?;
 
             pat_bytes.push(num);
         }
@@ -119,7 +119,7 @@ pub unsafe fn read_mem(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
     size: usize,
-) -> Result<Vec<u8>, ::std::io::Error> {
+) -> AnyResult<Vec<u8>> {
     let mut buf: Vec<u8> = vec![0; size];
 
     if 0 == crate::ffi::ReadProcessMemory(
@@ -129,7 +129,7 @@ pub unsafe fn read_mem(
         size,
         ::core::ptr::null_mut(),
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(buf)
@@ -140,7 +140,7 @@ pub unsafe fn write_mem<T>(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
     buf: &[T],
-) -> Result<usize, ::std::io::Error> {
+) -> AnyResult<usize> {
     let mut bytes_num_written: usize = 0;
 
     if 0 == crate::ffi::WriteProcessMemory(
@@ -150,7 +150,7 @@ pub unsafe fn write_mem<T>(
         ::core::mem::size_of::<T>() * buf.len(),
         &mut bytes_num_written,
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(bytes_num_written)
@@ -158,18 +158,18 @@ pub unsafe fn write_mem<T>(
 
 #[doc = r#"Return value: `Bytes num written`
 
-`buf: "0A 1B 2C 3D 4E 5F FF"`"#]
+`hex_str: "0A 1B 2C 3D 4E 5F FF"`"#]
 pub unsafe fn write_mem_hex_str<S: AsRef<str>>(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
     hex_str: S,
-) -> Result<usize, ::std::io::Error> {
+) -> AnyResult<usize> {
     let mut bytes_num_written: usize = 0;
 
     let mut bytes: Vec<u8> = Vec::<u8>::new();
 
     for c in hex_str.as_ref().split_whitespace() {
-        let num: u8 = u8::from_str_radix(c, 16).map_err(|err| ::std::io::Error::other(err))?;
+        let num: u8 = u8::from_str_radix(c, 16)?;
 
         bytes.push(num);
     }
@@ -181,7 +181,7 @@ pub unsafe fn write_mem_hex_str<S: AsRef<str>>(
         bytes.len(),
         &mut bytes_num_written,
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(bytes_num_written)
@@ -195,12 +195,12 @@ pub unsafe fn read_mem_t<T>(
     addr: *const ::core::ffi::c_void,
     buf: *mut T,
     size: usize,
-) -> Result<usize, ::std::io::Error> {
+) -> AnyResult<usize> {
     let mut bytes_num_read: usize = 0;
 
     if 0 == crate::ffi::ReadProcessMemory(proc_handle, addr, buf.cast(), size, &mut bytes_num_read)
     {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(bytes_num_read)
@@ -214,7 +214,7 @@ pub unsafe fn write_mem_t<T>(
     addr: *const ::core::ffi::c_void,
     buf: *const T,
     size: usize,
-) -> Result<usize, ::std::io::Error> {
+) -> AnyResult<usize> {
     let mut bytes_num_written: usize = 0;
 
     if 0 == crate::ffi::WriteProcessMemory(
@@ -224,44 +224,44 @@ pub unsafe fn write_mem_t<T>(
         size,
         &mut bytes_num_written,
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(bytes_num_written)
 }
 
-pub unsafe fn alloc_console() -> Result<(), ::std::io::Error> {
+pub unsafe fn alloc_console() -> AnyResult<()> {
     if 0 == ffi::AllocConsole() {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
 }
 
-pub unsafe fn free_console() -> Result<(), ::std::io::Error> {
+pub unsafe fn free_console() -> AnyResult<()> {
     if 0 == ffi::FreeConsole() {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
 }
 
 #[doc = "Make the console support **colored characters**"]
-pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
+pub unsafe fn colored_console() -> AnyResult<()> {
     let handle: HANDLE = ffi::GetStdHandle(0xFFFFFFF5);
 
     if -1 == handle as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut mode: u32 = 0;
 
     if 0 == ffi::GetConsoleMode(handle, &mut mode) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     if 0 == ffi::SetConsoleMode(handle, mode | 4) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
@@ -270,14 +270,14 @@ pub unsafe fn colored_console() -> Result<(), ::std::io::Error> {
 pub unsafe fn get_proc_address<S: AsRef<str>>(
     mod_handle: HANDLE,
     proc_name: S,
-) -> Result<HANDLE, ::std::io::Error> {
+) -> AnyResult<HANDLE> {
     let proc_addr = crate::ffi::GetProcAddress(
         mod_handle,
         format!("{}\0", proc_name.as_ref()).as_ptr().cast(),
     );
 
-    if 0 == proc_addr as isize {
-        return Err(::std::io::Error::last_os_error());
+    if 0 == proc_addr as HANDLE {
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(proc_addr)

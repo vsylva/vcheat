@@ -1,32 +1,32 @@
-use crate::HANDLE;
+use crate::{AnyResult, HANDLE};
 
 #[doc = "Return value: `Handle`"]
 #[inline]
-pub unsafe fn open_proc(pid: u32) -> Result<HANDLE, ::std::io::Error> {
+pub unsafe fn open_proc(pid: u32) -> AnyResult<HANDLE> {
     let proc_handle = crate::ffi::OpenProcess(0x1F0FFF, 0, pid);
 
     if 0 == proc_handle as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(proc_handle)
 }
 
 #[inline]
-pub unsafe fn close_handle(handle: HANDLE) -> Result<(), ::std::io::Error> {
+pub unsafe fn close_handle(handle: HANDLE) -> AnyResult<()> {
     if 0 == crate::ffi::CloseHandle(handle) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     };
 
     Ok(())
 }
 
 #[doc = "Return value: `Process id`"]
-pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Error> {
+pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> AnyResult<u32> {
     let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as isize == -1 {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut proc_info: crate::ffi::ProcessEntry32W =
@@ -37,11 +37,10 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
     if 0 == crate::ffi::Process32FirstW(snapshot_handle, &mut proc_info) {
         close_handle(snapshot_handle)?;
 
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
-    if String::from_utf16(&proc_info.sz_exe_file)
-        .map_err(|err| ::std::io::Error::other(err))?
+    if String::from_utf16(&proc_info.sz_exe_file)?
         .trim_end_matches("\0")
         .eq_ignore_ascii_case(proc_name.as_ref())
     {
@@ -51,8 +50,7 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
     }
 
     while 0 != crate::ffi::Process32NextW(snapshot_handle, &mut proc_info) {
-        if String::from_utf16(&proc_info.sz_exe_file)
-            .map_err(|err| ::std::io::Error::other(err))?
+        if String::from_utf16(&proc_info.sz_exe_file)?
             .trim_end_matches("\0")
             .eq_ignore_ascii_case(proc_name.as_ref())
         {
@@ -64,18 +62,15 @@ pub unsafe fn get_pid<S: AsRef<str>>(proc_name: S) -> Result<u32, ::std::io::Err
 
     close_handle(snapshot_handle)?;
 
-    Err(::std::io::Error::other(format!(
-        "{} not found",
-        proc_name.as_ref()
-    )))
+    Err(format!("{} not found", proc_name.as_ref()).into())
 }
 
 #[doc = "Return value: `Vec<types::ProcInfo>`"]
-pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::io::Error> {
+pub unsafe fn get_all_proc_info() -> AnyResult<Vec<crate::types::ProcInfo>> {
     let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x2, 0x0);
 
     if snapshot_handle as isize == -1 {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut proc_info: crate::ffi::ProcessEntry32W =
@@ -86,11 +81,10 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
     if 0 == crate::ffi::Process32FirstW(snapshot_handle, &mut proc_info) {
         close_handle(snapshot_handle)?;
 
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
-    let mut proc_name = String::from_utf16(&proc_info.sz_exe_file)
-        .map_err(|err| ::std::io::Error::other(err))?
+    let mut proc_name = String::from_utf16(&proc_info.sz_exe_file)?
         .trim_end_matches("\0")
         .to_owned();
 
@@ -102,8 +96,7 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
     });
 
     while 0 != crate::ffi::Process32NextW(snapshot_handle, &mut proc_info) {
-        proc_name = String::from_utf16(&proc_info.sz_exe_file)
-            .map_err(|err| ::std::io::Error::other(err))?
+        proc_name = String::from_utf16(&proc_info.sz_exe_file)?
             .trim_end_matches("\0")
             .to_owned();
 
@@ -122,11 +115,11 @@ pub unsafe fn get_all_proc_info() -> Result<Vec<crate::types::ProcInfo>, ::std::
 pub unsafe fn get_mod_info<S: AsRef<str>>(
     pid: u32,
     mod_name: S,
-) -> Result<crate::types::ModInfo, ::std::io::Error> {
+) -> AnyResult<crate::types::ModInfo> {
     let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
 
     if snapshot_handle as isize == -1 {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut mod_info: crate::ffi::ModuleEntry32W =
@@ -137,11 +130,10 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut mod_info) {
         close_handle(snapshot_handle)?;
 
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
-    let mut mod_name_ = String::from_utf16(&mod_info.sz_module)
-        .map_err(|err| ::std::io::Error::other(err))?
+    let mut mod_name_ = String::from_utf16(&mod_info.sz_module)?
         .trim_end_matches("\0")
         .to_owned();
 
@@ -157,8 +149,7 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
     }
 
     while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut mod_info) {
-        mod_name_ = String::from_utf16(&mod_info.sz_module)
-            .map_err(|err| ::std::io::Error::other(err))?
+        mod_name_ = String::from_utf16(&mod_info.sz_module)?
             .trim_end_matches("\0")
             .to_owned();
 
@@ -176,18 +167,15 @@ pub unsafe fn get_mod_info<S: AsRef<str>>(
 
     close_handle(snapshot_handle)?;
 
-    Err(::std::io::Error::other(format!(
-        "{} not found",
-        mod_name.as_ref()
-    )))
+    Err(format!("{} not found", mod_name.as_ref()).into())
 }
 
 #[doc = "Return value: `Vec<ModInfo>`"]
-pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, ::std::io::Error> {
+pub unsafe fn get_all_mod_info(pid: u32) -> AnyResult<Vec<crate::types::ModInfo>> {
     let snapshot_handle: HANDLE = crate::ffi::CreateToolhelp32Snapshot(0x8 | 0x10, pid);
 
     if snapshot_handle as isize == -1 {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let mut mod_info: crate::ffi::ModuleEntry32W =
@@ -198,11 +186,10 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
     if 0 == crate::ffi::Module32FirstW(snapshot_handle, &mut mod_info) {
         close_handle(snapshot_handle)?;
 
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
-    let mut mod_name = String::from_utf16(&mod_info.sz_module)
-        .map_err(|err| ::std::io::Error::other(err))?
+    let mut mod_name = String::from_utf16(&mod_info.sz_module)?
         .trim_end_matches("\0")
         .to_owned();
 
@@ -216,8 +203,7 @@ pub unsafe fn get_all_mod_info(pid: u32) -> Result<Vec<crate::types::ModInfo>, :
     });
 
     while 0 != crate::ffi::Module32NextW(snapshot_handle, &mut mod_info) {
-        mod_name = String::from_utf16(&mod_info.sz_module)
-            .map_err(|err| ::std::io::Error::other(err))?
+        mod_name = String::from_utf16(&mod_info.sz_module)?
             .trim_end_matches("\0")
             .to_owned();
 
@@ -241,11 +227,11 @@ pub unsafe fn alloc_mem(
     size: usize,
     mem_alloc: u32,
     mem_protect: u32,
-) -> Result<*mut ::core::ffi::c_void, ::std::io::Error> {
+) -> AnyResult<*mut ::core::ffi::c_void> {
     let addr = crate::ffi::VirtualAllocEx(proc_handle, addr, size, mem_alloc, mem_protect);
 
     if ::core::ptr::null_mut() == addr {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(addr)
@@ -257,13 +243,13 @@ pub unsafe fn free_mem(
     addr: *mut ::core::ffi::c_void,
     mut size: usize,
     mem_free: u32,
-) -> Result<(), ::std::io::Error> {
+) -> AnyResult<()> {
     if crate::types::mem_free::RELEASE == mem_free {
         size = 0;
     }
 
     if 0 == crate::ffi::VirtualFreeEx(proc_handle, addr, size, mem_free) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(())
@@ -273,7 +259,7 @@ pub unsafe fn free_mem(
 pub unsafe fn query_mem(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
-) -> Result<crate::types::MemInfo, ::std::io::Error> {
+) -> AnyResult<crate::types::MemInfo> {
     let mut mbi: crate::ffi::MemoryBasicInformation =
         ::core::mem::zeroed::<crate::ffi::MemoryBasicInformation>();
 
@@ -283,7 +269,7 @@ pub unsafe fn query_mem(
         &mut mbi,
         ::core::mem::size_of::<crate::ffi::MemoryBasicInformation>(),
     ) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     };
 
     Ok(crate::types::MemInfo {
@@ -298,21 +284,18 @@ pub unsafe fn protect_mem(
     addr: *const ::core::ffi::c_void,
     size: usize,
     mem_protect: u32,
-) -> Result<u32, ::std::io::Error> {
+) -> AnyResult<u32> {
     let mut prev_prot: u32 = Default::default();
 
     if 0 == crate::ffi::VirtualProtectEx(proc_handle, addr, size, mem_protect, &mut prev_prot) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     Ok(prev_prot)
 }
 
 #[doc = "Remote DLL Injection"]
-pub unsafe fn inject_dll<S: AsRef<str>>(
-    proc_handle: HANDLE,
-    dll_path: S,
-) -> Result<(), ::std::io::Error> {
+pub unsafe fn inject_dll<S: AsRef<str>>(proc_handle: HANDLE, dll_path: S) -> AnyResult<()> {
     let dll_path_buf = format!("{}\0", dll_path.as_ref())
         .to_string()
         .encode_utf16()
@@ -333,7 +316,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
     );
 
     if 0 == procedure as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     let addr = crate::external::alloc_mem(
@@ -361,7 +344,7 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
 
         free_mem(proc_handle, addr, 0, crate::types::mem_free::RELEASE)?;
 
-        return Err(err);
+        return Err(err.into());
     }
 
     crate::ffi::WaitForSingleObject(thread_handle, 0xFFFFFFF);
@@ -369,11 +352,11 @@ pub unsafe fn inject_dll<S: AsRef<str>>(
     let mut code = 0;
 
     if 0 == crate::ffi::GetExitCodeThread(thread_handle, &mut code) {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     if 0 == code {
-        return Err(::std::io::ErrorKind::InvalidInput.into());
+        return Err(::std::io::ErrorKind::InvalidInput.to_string().into());
     }
 
     free_mem(proc_handle, addr, 0, crate::types::mem_free::RELEASE)?;
@@ -388,7 +371,7 @@ pub unsafe fn eject_dll(
     proc_handle: HANDLE,
     mod_handle: HANDLE,
     should_exit_thread: bool,
-) -> Result<(), ::std::io::Error> {
+) -> AnyResult<()> {
     let c_str: &'static str;
 
     if should_exit_thread {
@@ -418,7 +401,7 @@ pub unsafe fn eject_dll(
     );
 
     if 0 == thread_handle as isize {
-        return Err(::std::io::Error::last_os_error());
+        return Err(::std::io::Error::last_os_error().into());
     }
 
     crate::ffi::WaitForSingleObject(thread_handle, 0xFFFFFFFF);
@@ -427,11 +410,11 @@ pub unsafe fn eject_dll(
         let mut code = 0;
 
         if 0 == crate::ffi::GetExitCodeThread(thread_handle, &mut code) {
-            return Err(::std::io::Error::last_os_error());
+            return Err(::std::io::Error::last_os_error().into());
         }
 
         if 0 == code {
-            return Err(::std::io::ErrorKind::InvalidInput.into());
+            return Err(::std::io::ErrorKind::InvalidInput.to_string().into());
         }
     }
 
@@ -445,12 +428,12 @@ pub unsafe fn read_multi_pointer(
     proc_handle: HANDLE,
     mut base_addr: *const ::core::ffi::c_void,
     byte_offsets: &[isize],
-) -> Result<*const ::core::ffi::c_void, std::io::Error> {
+) -> AnyResult<*const ::core::ffi::c_void> {
     {
         let mut mbi = query_mem(proc_handle, base_addr)?;
 
         if mbi.state != crate::types::mem_alloc::COMMIT {
-            return Err(std::io::Error::other("The mem is not commit"));
+            return Err("The mem is not commit".into());
         }
 
         protect_mem(
@@ -470,7 +453,7 @@ pub unsafe fn read_multi_pointer(
             mbi = query_mem(proc_handle, base_addr)?;
 
             if mbi.state != crate::types::mem_alloc::COMMIT {
-                return Err(std::io::Error::other("The mem is not commit"));
+                return Err("The mem is not commit".into());
             }
 
             protect_mem(
@@ -494,13 +477,13 @@ pub unsafe fn check_mem_protect(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
     mem_query_protect: crate::types::MemQueryProtect,
-) -> Result<bool, std::io::Error> {
+) -> AnyResult<bool> {
     let mbi = query_mem(proc_handle, addr)?;
 
     let is_commit = mbi.state == crate::types::mem_alloc::COMMIT;
 
     if !is_commit {
-        return Err(std::io::Error::other("The mem is not commit"));
+        return Err("The mem is not commit".into());
     }
 
     let is_protect_able: bool;
