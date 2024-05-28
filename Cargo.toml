@@ -10,4 +10,9 @@ repository = "https://github.com/vSylva/vcheat"
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
-targets = ["x86_64-pc-windows-msvc", "i686-pc-windows-msvc"]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "i686-pc-windows-msvc",
+    "x86_64-pc-windows-gnu",
+    "i686-pc-windows-gnu",
+]
