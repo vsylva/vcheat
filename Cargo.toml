@@ -1,12 +1,12 @@
 [package]
 name = "vcheat"
 version = "0.6.5"
-authors = ["vSylva"]
+authors = ["sylvavv"]
 edition = "2021"
 description = "Hacking Library"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/vSylva/vcheat"
+repository = "https://github.com/sylvavv/vcheat"
 
 [package.metadata.docs.rs]
 default-target = "x86_64-pc-windows-msvc"
