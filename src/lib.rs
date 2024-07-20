@@ -21,7 +21,7 @@ pub type HANDLE = isize;
 pub type BOOL = i32;
 
 #[doc = r"Return value: `Offset`"]
-pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<usize> {
+pub fn pat_find<S: AsRef<str>, U: AsRef<[u8]>>(pat: S, data: U) -> AnyResult<usize> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.as_ref().split_whitespace() {
@@ -34,7 +34,7 @@ pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<usize> {
         }
     }
 
-    let data_len = data.len();
+    let data_len = data.as_ref().len();
     let pat_bytes_len = pat_bytes.len();
 
     let mut skip_table = [pat_bytes.len(); 256];
@@ -51,23 +51,23 @@ pub unsafe fn pat_find<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<usize> {
         let mut j = pat_bytes_len - 1;
         let mut k = i;
 
-        while j > 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+        while j > 0 && (data.as_ref()[k] == pat_bytes[j] || pat_bytes[j] == 0) {
             k -= 1;
             j -= 1;
         }
 
-        if j == 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+        if j == 0 && (data.as_ref()[k] == pat_bytes[j] || pat_bytes[j] == 0) {
             return Ok(k);
         }
 
-        i += skip_table[data[i] as usize];
+        i += skip_table[data.as_ref()[i] as usize];
     }
 
     Err("\"pat\" not found".into())
 }
 
 #[doc = r"Return value: `Vec<Offset>`"]
-pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<Vec<usize>> {
+pub fn pat_scan<S: AsRef<str>, U: AsRef<[u8]>>(pat: S, data: U) -> AnyResult<Vec<usize>> {
     let mut pat_bytes: Vec<u8> = Vec::<u8>::new();
 
     for pair in pat.as_ref().split_whitespace() {
@@ -80,7 +80,7 @@ pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<Vec<usiz
         }
     }
 
-    let data_len = data.len();
+    let data_len = data.as_ref().len();
     let pat_bytes_len = pat_bytes.len();
 
     let mut skip_table = [pat_bytes.len(); 256];
@@ -99,16 +99,16 @@ pub unsafe fn pat_scan<S: AsRef<str>>(pat: S, data: &[u8]) -> AnyResult<Vec<usiz
         let mut j = pat_bytes_len - 1;
         let mut k = i;
 
-        while j > 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+        while j > 0 && (data.as_ref()[k] == pat_bytes[j] || pat_bytes[j] == 0) {
             k -= 1;
             j -= 1;
         }
 
-        if j == 0 && (data[k] == pat_bytes[j] || pat_bytes[j] == 0) {
+        if j == 0 && (data.as_ref()[k] == pat_bytes[j] || pat_bytes[j] == 0) {
             offset_array.push(k);
         }
 
-        i += skip_table[data[i] as usize];
+        i += skip_table[data.as_ref()[i] as usize];
     }
 
     Ok(offset_array)
@@ -136,18 +136,18 @@ pub unsafe fn read_mem(
 }
 
 #[doc = "Return value: `Bytes num written`"]
-pub unsafe fn write_mem<T>(
+pub unsafe fn write_mem<T, U: AsRef<[T]>>(
     proc_handle: HANDLE,
     addr: *const ::core::ffi::c_void,
-    buf: &[T],
+    buf: U,
 ) -> AnyResult<usize> {
     let mut bytes_num_written: usize = 0;
 
     if 0 == crate::ffi::WriteProcessMemory(
         proc_handle,
         addr,
-        buf.as_ptr().cast(),
-        ::core::mem::size_of::<T>() * buf.len(),
+        buf.as_ref().as_ptr().cast(),
+        ::core::mem::size_of::<T>() * buf.as_ref().len(),
         &mut bytes_num_written,
     ) {
         return Err(::std::io::Error::last_os_error().into());

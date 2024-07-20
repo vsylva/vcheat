@@ -1,6 +1,6 @@
 [package]
 name = "vcheat"
-version = "0.6.5"
+version = "0.6.6"
 authors = ["sylvavv"]
 edition = "2021"
 description = "Hacking Library"

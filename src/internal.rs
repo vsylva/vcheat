@@ -164,9 +164,9 @@ pub unsafe fn free_dll_exit_thread(mod_handle: HANDLE, exit_code: u32) {
 }
 
 #[doc = "Return value: `Final pointer`"]
-pub unsafe fn read_multi_pointer(
+pub unsafe fn read_multi_pointer<T: AsRef<[isize]>>(
     mut base_addr: *const ::core::ffi::c_void,
-    byte_offsets: &[isize],
+    byte_offsets: T,
 ) -> AnyResult<*const ::core::ffi::c_void> {
     {
         let mut mbi = query_mem(base_addr)?;
@@ -185,7 +185,7 @@ pub unsafe fn read_multi_pointer(
 
         protect_mem(base_addr, 0x1000, mbi.protect)?;
 
-        for byte_offset in byte_offsets {
+        for byte_offset in byte_offsets.as_ref() {
             base_addr = base_addr.byte_offset(*byte_offset);
 
             mbi = query_mem(base_addr)?;
